@@ -5,8 +5,8 @@ export interface Product {
   name: string;
   sku: string;
   description: string;
-  category: 'eggs_dozen' | 'eggs_bulk' | 'processed' | 'feed' | 'packaging';
-  unit_of_measure: 'tray' | 'dozen' | 'carton' | 'kg' | 'litre';
+  category: 'eggs_dozen' | 'eggs_bulk' | 'processed' | 'feed' | 'packaging' | 'manure_organic';
+  unit_of_measure: 'tray' | 'dozen' | 'carton' | 'kg' | 'litre' | 'bag_5kg' | 'bag_10kg' | 'bag_50kg';
   base_price: number;
   weight_grams?: number;
   is_active: boolean;
@@ -119,6 +119,42 @@ export const mockProducts: Product[] = [
     weight_grams: 5000,
     is_active: true,
     stock_quantity: 65,
+  },
+  {
+    id: 'prod-05',
+    name: 'Eden Bio-Compost 5 kg Retail Pouch',
+    sku: 'MN-RETAIL-5KG',
+    description: 'Aged Cured Hen Manure Organic Fertilizer in zip-lock retail pouch (5 Kg Pack).',
+    category: 'manure_organic',
+    unit_of_measure: 'bag_5kg',
+    base_price: 150,
+    weight_grams: 5000,
+    is_active: true,
+    stock_quantity: 640,
+  },
+  {
+    id: 'prod-06',
+    name: 'Eden Bio-Compost 10 kg Garden Bag',
+    sku: 'MN-RETAIL-10KG',
+    description: 'Nitrogen-rich organic poultry compost for home gardens & nurseries (10 Kg Pack).',
+    category: 'manure_organic',
+    unit_of_measure: 'bag_10kg',
+    base_price: 280,
+    weight_grams: 10000,
+    is_active: true,
+    stock_quantity: 420,
+  },
+  {
+    id: 'prod-07',
+    name: 'Eden Bio-Compost 50 kg Commercial Sack',
+    sku: 'MN-BULK-50KG',
+    description: 'Commercial grade cured poultry manure for tea, rubber & spice plantations (50 Kg Bag).',
+    category: 'manure_organic',
+    unit_of_measure: 'bag_50kg',
+    base_price: 350,
+    weight_grams: 50000,
+    is_active: true,
+    stock_quantity: 280,
   },
 ];
 
