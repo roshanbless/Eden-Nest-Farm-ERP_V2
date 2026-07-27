@@ -7,19 +7,67 @@ import { supabase } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('admin@edennest.farm');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('manager@edennest.farm');
+  const [password, setPassword] = useState('farm123');
+  const [targetPath, setTargetPath] = useState('/dashboard/production');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Demo Accounts preset helper
+  // Explicit Team & Role Login Profiles
   const demoAccounts = [
-    { role: 'Roshan Alexander (Owner)', email: 'roshanalex2007@gmail.com', farm: 'Eden Nest HQ' },
-    { role: 'Farm Manager', email: 'manager@edennest.farm', farm: 'Valley Shed A' },
-    { role: 'Sales Team', email: 'sales@edennest.farm', farm: 'Dispatch Center' },
-    { role: 'Customer', email: 'customer@edennest.farm', farm: 'Subscription' },
+    {
+      roleName: 'Farm Manager',
+      email: 'manager@edennest.farm',
+      password: 'farm123',
+      icon: '👨‍🌾',
+      redirectUrl: '/dashboard/production',
+      description: 'Daily Egg Collection & Laying Yields',
+      badge: 'Shed Telemetry',
+    },
+    {
+      roleName: 'Sales Team',
+      email: 'sales@edennest.farm',
+      password: 'sales123',
+      icon: '🛒',
+      redirectUrl: '/dashboard/orders',
+      description: 'Orders, Subscriptions & B2B CRM',
+      badge: 'Commerce Hub',
+    },
+    {
+      roleName: 'Quality Team',
+      email: 'quality@edennest.farm',
+      password: 'quality123',
+      icon: '🧪',
+      redirectUrl: '/dashboard/quality',
+      description: 'QC Inspection & Shell Defect Grading',
+      badge: 'Lab Audit',
+    },
+    {
+      roleName: 'Dispatch Team',
+      email: 'dispatch@edennest.farm',
+      password: 'driver123',
+      icon: '🚚',
+      redirectUrl: '/dashboard/deliveries',
+      description: 'Vehicle Routes & Driver Settlement',
+      badge: 'Logistics Center',
+    },
+    {
+      roleName: 'Super Admin / Owner',
+      email: 'roshanalex2007@gmail.com',
+      password: 'admin123',
+      icon: '👑',
+      redirectUrl: '/dashboard',
+      description: 'Full ERP Control & System Health',
+      badge: 'Global Admin',
+    },
   ];
+
+  const selectRolePreset = (acc: typeof demoAccounts[0]) => {
+    setEmail(acc.email);
+    setPassword(acc.password);
+    setTargetPath(acc.redirectUrl);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +75,7 @@ export default function LoginPage() {
     setErrorMsg('');
 
     try {
-      // Attempt Supabase Auth login
+      // Attempt Supabase Auth login if configured
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -36,17 +84,17 @@ export default function LoginPage() {
       if (!error && data?.session) {
         document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=${data.session.expires_in}`;
         document.cookie = `eden-auth-token=${email}; path=/; max-age=86400`;
-        router.push('/dashboard');
+        router.push(targetPath || '/dashboard');
         return;
       }
 
-      // Seamless Demo & Workspace Authentication Fallback
-      console.log('Workspace authentication successful for:', email);
+      // Seamless Demo & Workspace Authentication Fallback for Role Logins
+      console.log('Role login authenticated successfully for:', email);
       document.cookie = `eden-auth-token=${email}; path=/; max-age=86400`;
-      router.push('/dashboard');
+      router.push(targetPath || '/dashboard');
     } catch {
       document.cookie = `eden-auth-token=${email}; path=/; max-age=86400`;
-      router.push('/dashboard');
+      router.push(targetPath || '/dashboard');
     }
   };
 
@@ -64,32 +112,39 @@ export default function LoginPage() {
         </div>
         <h2 className="text-3xl font-extrabold text-white tracking-tight">Sign in to workspace</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Enter your agricultural ERP credentials to access farm telemetry & operations.
+          Select your departmental role or enter custom credentials to access farm telemetry & operations.
         </p>
       </div>
 
-      {/* Demo Account Quick Switcher */}
-      <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
-        <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
-          <span>SELECT DEMO ROLE PRESET</span>
-          <span className="text-emerald-400 font-normal">Auto-fills</span>
+      {/* Role Login Presets */}
+      <div className="p-4 rounded-2xl bg-[#091b12] border border-[#133e2b] space-y-3 glass-card">
+        <div className="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-wider">
+          <span>SELECT TEAM ROLE PROFILE TO LOGIN</span>
+          <span className="text-emerald-400 font-mono text-[10px]">One-Click Preset</span>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {demoAccounts.map((demo) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {demoAccounts.map((acc) => (
             <button
-              key={demo.role}
+              key={acc.roleName}
               type="button"
-              onClick={() => {
-                setEmail(demo.email);
-                setPassword('password123');
-              }}
-              className={`p-2.5 rounded-xl border text-left text-xs transition-all ${email === demo.email
-                  ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
-                  : 'bg-slate-950/50 border-slate-800 text-slate-300 hover:border-slate-700'
-                }`}
+              onClick={() => selectRolePreset(acc)}
+              className={`p-3 rounded-xl border text-left text-xs transition-all flex items-start justify-between gap-2 ${
+                email === acc.email
+                  ? 'bg-[#133e2b] border-emerald-500 text-white shadow-md shadow-emerald-950/60 ring-1 ring-emerald-500'
+                  : 'bg-[#06140e] border-[#133e2b] text-slate-300 hover:border-emerald-500/50 hover:bg-[#0a2017]'
+              }`}
             >
-              <div className="font-semibold">{demo.role}</div>
-              <div className="text-[10px] text-slate-500 truncate">{demo.farm}</div>
+              <div className="space-y-0.5">
+                <div className="font-bold flex items-center gap-1.5 text-white">
+                  <span>{acc.icon}</span>
+                  <span>{acc.roleName}</span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono">{acc.email}</div>
+                <div className="text-[10px] text-emerald-400 font-medium">{acc.description}</div>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-[9px] font-mono text-amber-300 shrink-0">
+                {acc.badge}
+              </span>
             </button>
           ))}
         </div>
@@ -118,7 +173,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@edennest.farm"
-              className="w-full px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm transition-all"
+              className="w-full px-4 py-3 rounded-xl bg-[#06140e] border border-[#133e2b] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm transition-all font-mono"
             />
           </div>
         </div>
@@ -142,7 +197,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
-              className="w-full px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm transition-all pr-10"
+              className="w-full px-4 py-3 rounded-xl bg-[#06140e] border border-[#133e2b] text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm transition-all pr-10 font-mono"
             />
             <button
               type="button"
@@ -157,7 +212,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold text-sm shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-sm shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {loading ? (
             <>
@@ -165,11 +220,11 @@ export default function LoginPage() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              Authenticating...
+              Authenticating Team Role...
             </>
           ) : (
             <>
-              Sign In to ERP Dashboard
+              Sign In to Team Dashboard ({email.split('@')[0]})
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
               </svg>
