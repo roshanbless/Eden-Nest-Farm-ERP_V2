@@ -173,13 +173,17 @@ export default function ProductsPage() {
                   <select
                     value={unit}
                     onChange={(e: any) => setUnit(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold text-emerald-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   >
-                    <option value="tray">Tray (30 Eggs)</option>
-                    <option value="dozen">Dozen Pack (12 Eggs)</option>
-                    <option value="carton">Commercial Carton (210 Eggs)</option>
-                    <option value="kg">Kilogram (Liquid Egg / Feed)</option>
-                    <option value="litre">Litre (Liquid)</option>
+                    <option value="pack_6">6-Egg Pack (6 Eggs Carton)</option>
+                    <option value="pack_12">12-Egg Pack (12 Eggs Carton / Dozen)</option>
+                    <option value="tray">30-Egg Tray (30 Eggs Pulp Tray)</option>
+                    <option value="carton">Commercial Carton (210 Eggs / 7 Trays)</option>
+                    <option value="bag_5kg">5 kg Organic Manure Zip Pouch</option>
+                    <option value="bag_10kg">10 kg Organic Manure Garden Bag</option>
+                    <option value="bag_50kg">50 kg Organic Manure Commercial Sack</option>
+                    <option value="kg">Kilogram (Kg)</option>
+                    <option value="litre">Litre (L)</option>
                   </select>
                 </div>
               </div>
