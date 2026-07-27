@@ -117,6 +117,28 @@ CREATE TABLE IF NOT EXISTS employees (
 -- 4. BATCHES & PRODUCTION
 -- ==========================================
 
+CREATE TABLE IF NOT EXISTS production (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  collection_time VARCHAR(30) DEFAULT 'Morning', -- Morning, Afternoon, Evening, Full Day
+  bird_count INT DEFAULT 0,
+  feed_consumed_kg NUMERIC(10, 2) DEFAULT 0,
+  mortality_count INT DEFAULT 0,
+  eggs_produced INT DEFAULT 0,
+  broken_eggs INT DEFAULT 0,
+  ungraded_eggs INT DEFAULT 0,
+  grade_a INT DEFAULT 0,
+  grade_b INT DEFAULT 0,
+  grade_c INT DEFAULT 0,
+  production_percentage NUMERIC(5, 2) DEFAULT 0,
+  quality_score NUMERIC(3, 1) DEFAULT 9.5,
+  notes TEXT,
+  recorded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS batches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_number VARCHAR(50) UNIQUE NOT NULL,
