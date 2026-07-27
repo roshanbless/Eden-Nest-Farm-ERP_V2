@@ -74,9 +74,9 @@ export interface Order {
 export const mockProducts: Product[] = [
   {
     id: 'prod-00',
-    name: 'Fresh Farm Organic 6-Pack (6 Eggs)',
+    name: 'Fresh Farm Organic 6-Egg Pack (6 Eggs tray)',
     sku: 'EGGS-PACK-6',
-    description: 'Grade A Large Fresh Organic Brown Eggs packed in 6-egg carton (6 Eggs Pack).',
+    description: 'Grade A Large Fresh Organic Brown Eggs packed in 6 Eggs tray (6-Egg Pack).',
     category: 'eggs_dozen',
     unit_of_measure: 'pack_6',
     base_price: 50,
@@ -86,9 +86,9 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-02',
-    name: 'Premium Organic 12-Pack (12 Eggs / Dozen)',
+    name: 'Premium Organic 12-Egg Pack (12 Eggs tray)',
     sku: 'EGGS-PACK-12',
-    description: 'Grade A Selected Organic Brown Eggs in 12-egg carton pack (12 Eggs Pack).',
+    description: 'Grade A Selected Organic Brown Eggs in 12 Eggs tray (12-Egg Pack).',
     category: 'eggs_dozen',
     unit_of_measure: 'pack_12',
     base_price: 95,
