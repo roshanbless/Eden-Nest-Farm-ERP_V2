@@ -249,6 +249,43 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- ==========================================
+-- 8. FLOCK HEALTH & NUTRITION SCHEDULING
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS vaccination_schedules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vaccine_name VARCHAR(255) NOT NULL,
+  target_disease VARCHAR(255) NOT NULL,
+  farm_id UUID REFERENCES farms(id) ON DELETE CASCADE,
+  shed_name VARCHAR(100) NOT NULL,
+  flock_age_weeks INT NOT NULL,
+  scheduled_date DATE NOT NULL,
+  administered_date DATE,
+  administration_method VARCHAR(100) DEFAULT 'Drinking Water',
+  dosage VARCHAR(100),
+  batch_number VARCHAR(100),
+  veterinarian_name VARCHAR(255),
+  status VARCHAR(30) DEFAULT 'Scheduled', -- Completed, Scheduled, Overdue
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nutrition_schedules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  supplement_name VARCHAR(255) NOT NULL,
+  category VARCHAR(100) NOT NULL, -- Calcium, Vitamin & Electrolytes, Gut Probiotics
+  farm_id UUID REFERENCES farms(id) ON DELETE CASCADE,
+  shed_name VARCHAR(100) NOT NULL,
+  dosage_pattern VARCHAR(255) NOT NULL,
+  administration_route VARCHAR(50) DEFAULT 'Drinking Water',
+  frequency VARCHAR(100) DEFAULT 'Daily',
+  start_date DATE NOT NULL,
+  end_date DATE,
+  status VARCHAR(30) DEFAULT 'Active', -- Active, Completed, Upcoming
+  administered_by VARCHAR(255),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Performance Indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_batches_farm_date ON batches(farm_id, production_date);

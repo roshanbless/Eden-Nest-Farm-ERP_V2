@@ -19,6 +19,7 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
         { name: 'Dashboard Overview', href: '/dashboard', icon: '📊' },
         { name: 'Farm Units & Sheds', href: '/dashboard/farms', icon: '🏡', badge: '3 Sheds' },
         { name: 'Daily Production', href: '/dashboard/production', icon: '🥚', badge: 'Active' },
+        { name: 'Flock Health & Vaccines', href: '/dashboard/flock-health', icon: '💉', badge: 'Schedule' },
         { name: 'Quality Control', href: '/dashboard/quality', icon: '🧪' },
         { name: 'Manure & Fertilizer', href: '/dashboard/manure', icon: '🌱', badge: 'Revenue' },
       ],
