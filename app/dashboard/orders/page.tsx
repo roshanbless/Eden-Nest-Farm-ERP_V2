@@ -18,7 +18,7 @@ export default function OrdersPage() {
   const [selectedProductId, setSelectedProductId] = useState('prod-01');
   
   // EDITABLE PRICE & QUANTITY FIELDS
-  const [editableUnitPrice, setEditableUnitPrice] = useState('210');
+  const [editableUnitPrice, setEditableUnitPrice] = useState('240');
   const [quantity, setQuantity] = useState('10');
   const [deliveryAddress, setDeliveryAddress] = useState('Indiranagar, Bengaluru 560038');
   const [discount, setDiscount] = useState('0');
@@ -43,7 +43,7 @@ export default function OrdersPage() {
     setPackagingMode(mode);
 
     if (mode === 'single') {
-      setEditableUnitPrice('6.50');
+      setEditableUnitPrice('8.00');
     } else {
       const prod = mockProducts.find((p) => p.id === productId) || mockProducts[0];
       setEditableUnitPrice(prod.base_price.toString());
