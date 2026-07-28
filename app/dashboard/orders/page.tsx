@@ -29,14 +29,15 @@ export default function OrdersPage() {
   const [customerName, setCustomerName] = useState('Metro Fresh Mart');
   const [customerPhone, setCustomerPhone] = useState('+91 98765 22110');
   const [orderType, setOrderType] = useState<'one_time' | 'subscription' | 'bulk_order'>('bulk_order');
-  const [selectedChannelId, setSelectedChannelId] = useState('ch-retail');
+  const [selectedChannelId, setSelectedChannelId] = useState('ch-d2c');
   const [packagingMode, setPackagingMode] = useState<'single' | 'pack' | 'bulk'>('pack');
-  const [selectedProductId, setSelectedProductId] = useState('prod-01');
+  const [selectedProductId, setSelectedProductId] = useState('prod-00');
   
   // Dynamic Base Rate per Egg & Editable Unit Price
   const [marketBaseEggPrice, setMarketBaseEggPrice] = useState<number>(8.00);
-  const [editableUnitPrice, setEditableUnitPrice] = useState('240');
-  const [quantity, setQuantity] = useState('10');
+  const [editableUnitPrice, setEditableUnitPrice] = useState('50.40');
+  const [quantity, setQuantity] = useState('1');
+  const [shippingCostInput, setShippingCostInput] = useState('0');
   const [deliveryAddress, setDeliveryAddress] = useState('Indiranagar, Bengaluru 560038');
   const [discount, setDiscount] = useState('0');
 
@@ -60,20 +61,20 @@ export default function OrdersPage() {
     setPackagingMode(mode);
     setSelectedProductId(productId);
 
-    const channel = salesChannels.find((c) => c.id === channelId) || salesChannels[1];
-    const channelEggRate = marketBaseEggPrice * channel.multiplier;
+    const channel = salesChannels.find((c) => c.id === channelId) || salesChannels[0];
+    const channelEggRate = marketBaseEggPrice * channel.multiplier; // e.g. 8.40 for D2C
 
     if (mode === 'single') {
       setEditableUnitPrice(channelEggRate.toFixed(2));
     } else {
-      let eggCount = 30;
+      let eggCount = 6;
       if (productId === 'prod-00') eggCount = 6;
       if (productId === 'prod-02') eggCount = 12;
       if (productId === 'prod-01') eggCount = 30;
       if (productId === 'prod-03') eggCount = 210;
 
-      const packPrice = Math.round(eggCount * channelEggRate);
-      setEditableUnitPrice(packPrice.toString());
+      const packPrice = (eggCount * channelEggRate).toFixed(2);
+      setEditableUnitPrice(packPrice);
     }
   };
 
@@ -103,12 +104,13 @@ export default function OrdersPage() {
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
     const prod = mockProducts.find((p) => p.id === selectedProductId) || mockProducts[0];
-    const ch = salesChannels.find((c) => c.id === selectedChannelId) || salesChannels[1];
+    const ch = salesChannels.find((c) => c.id === selectedChannelId) || salesChannels[0];
     const qtyNum = parseInt(quantity) || 1;
-    const unitPriceNum = parseFloat(editableUnitPrice) || prod.base_price;
+    const unitPriceNum = parseFloat(editableUnitPrice) || 50.40;
     const subtotalCalc = unitPriceNum * qtyNum;
+    const shipNum = parseFloat(shippingCostInput) || 0;
     const discNum = parseFloat(discount) || 0;
-    const totalCalc = Math.max(0, subtotalCalc + 250 - discNum);
+    const totalCalc = Math.max(0, subtotalCalc + shipNum - discNum);
 
     let modeLabel = 'Pack Trays';
     if (packagingMode === 'single') modeLabel = 'Single Loose Eggs';
@@ -126,7 +128,7 @@ export default function OrdersPage() {
       delivery_address: deliveryAddress,
       subtotal: subtotalCalc,
       tax: Math.round(subtotalCalc * 0.05),
-      shipping_cost: 250,
+      shipping_cost: shipNum,
       discount: discNum,
       total: totalCalc,
       order_status: 'pending',
@@ -151,7 +153,7 @@ export default function OrdersPage() {
   const openPriceEditModal = (order: Order) => {
     setEditingOrderPrice(order);
     const item = order.items?.[0];
-    setModUnitPrice(item?.unit_price ? item.unit_price.toString() : '240');
+    setModUnitPrice(item?.unit_price ? item.unit_price.toString() : '50.40');
     setModDiscount(order.discount ? order.discount.toString() : '0');
   };
 
@@ -190,6 +192,14 @@ export default function OrdersPage() {
     setEditingOrderPrice(null);
   };
 
+  // Real-time calculations for modal
+  const currentQty = parseInt(quantity) || 1;
+  const currentUnitPrice = parseFloat(editableUnitPrice) || 0;
+  const currentSubtotal = currentQty * currentUnitPrice;
+  const currentShipping = parseFloat(shippingCostInput) || 0;
+  const currentDiscount = parseFloat(discount) || 0;
+  const currentTotal = Math.max(0, currentSubtotal + currentShipping - currentDiscount);
+
   return (
     <div className="space-y-8 pb-12">
       {/* Header Banner */}
@@ -198,14 +208,17 @@ export default function OrdersPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-2">
             🛒 Channel Mix Sales Engine & NECC Price Control
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Order Management & Channel Mix Pricing</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Order Management & Precise Pricing</h1>
           <p className="text-xs text-slate-300 mt-1">
-            Create sales orders across 5 channels: <strong>Direct, Hotels/Bakeries, Institutional, Branded Retail & NECC Overflow</strong> with <strong>100% Editable Unit Prices</strong>.
+            Create sales orders across 5 channels: <strong>Direct, Hotels/Bakeries, Institutional, Branded Retail & NECC Overflow</strong> with <strong>100% Precise Math</strong>.
           </p>
         </div>
 
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => {
+            updateCalculatedRate('ch-d2c', 'pack', 'prod-00');
+            setShowCreateModal(true);
+          }}
           className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 text-white font-semibold text-xs shadow-lg shadow-emerald-950 flex items-center gap-2 self-start md:self-auto"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -364,10 +377,10 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Modal 1: Create Sales Order with Channel Mix & Editable Price */}
+      {/* Modal 1: Create Sales Order with Exact Math */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#091b12] border border-[#133e2b] rounded-3xl p-6 space-y-5 shadow-2xl">
+          <div className="w-full max-w-lg bg-[#091b12] border border-[#133e2b] rounded-3xl p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#133e2b] pb-3">
               <h3 className="text-xl font-bold text-white">Create Sales Order</h3>
               <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">
@@ -375,7 +388,7 @@ export default function OrdersPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateOrder} className="space-y-4 text-xs">
+            <form onSubmit={handleCreateOrder} className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-semibold text-slate-300 mb-1">Customer / Enterprise Name</label>
                 <input
@@ -480,23 +493,32 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Order Quantity (Units)</label>
+                  <label className="block font-semibold text-slate-300 mb-1">Quantity</label>
                   <input
                     type="number"
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Custom Discount (₹)</label>
+                  <label className="block font-semibold text-slate-300 mb-1">Shipping (₹)</label>
+                  <input
+                    type="number"
+                    value={shippingCostInput}
+                    onChange={(e) => setShippingCostInput(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">Discount (₹)</label>
                   <input
                     type="number"
                     value={discount}
                     onChange={(e) => setDiscount(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-emerald-300 font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-emerald-300 font-mono"
                   />
                 </div>
               </div>
@@ -508,29 +530,47 @@ export default function OrdersPage() {
                   required
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white"
+                  className="w-full px-3 py-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-white"
                 />
               </div>
 
-              {/* Real-Time Total Calculation Banner */}
-              <div className="p-3 rounded-xl bg-[#06140e] border border-[#133e2b] flex items-center justify-between text-xs">
-                <span className="text-slate-400">Calculated Total Price:</span>
-                <span className="text-amber-400 font-extrabold font-mono text-base">
-                  ₹{Math.max(0, (parseFloat(editableUnitPrice || '0') * (parseInt(quantity) || 1)) + 250 - (parseFloat(discount) || 0)).toLocaleString()}
-                </span>
+              {/* Precise Real-Time Price Calculation Breakdown Banner */}
+              <div className="p-3.5 rounded-xl bg-[#06140e] border border-emerald-500/40 space-y-1.5">
+                <div className="flex items-center justify-between text-slate-300 font-mono text-[11px]">
+                  <span>Subtotal ({currentQty} × ₹{currentUnitPrice.toFixed(2)}):</span>
+                  <span>₹{currentSubtotal.toFixed(2)}</span>
+                </div>
+                {currentShipping > 0 && (
+                  <div className="flex items-center justify-between text-slate-400 font-mono text-[11px]">
+                    <span>Shipping Charge:</span>
+                    <span>+ ₹{currentShipping.toFixed(2)}</span>
+                  </div>
+                )}
+                {currentDiscount > 0 && (
+                  <div className="flex items-center justify-between text-emerald-400 font-mono text-[11px]">
+                    <span>Discount Applied:</span>
+                    <span>- ₹{currentDiscount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="pt-1 border-t border-[#133e2b] flex items-center justify-between font-bold">
+                  <span className="text-white text-xs">Calculated Net Total:</span>
+                  <span className="text-amber-400 font-mono font-extrabold text-base">
+                    ₹{currentTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
               </div>
 
-              <div className="pt-3 border-t border-[#133e2b] flex justify-end gap-3">
+              <div className="pt-2 border-t border-[#133e2b] flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white"
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg"
                 >
                   Create & Confirm Order
                 </button>
