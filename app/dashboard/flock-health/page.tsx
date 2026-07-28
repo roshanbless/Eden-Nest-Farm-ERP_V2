@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface VaccinationRecord {
   id: string;
@@ -153,10 +153,11 @@ export default function FlockHealthPage() {
   const [vaccinesList, setVaccinesList] = useState<VaccinationRecord[]>(mockVaccinations);
   const [supplementsList, setSupplementsList] = useState<NutritionSupplementRecord[]>(mockSupplements);
 
+  const [showPendingPopup, setShowPendingPopup] = useState(false);
   const [showVaccineModal, setShowVaccineModal] = useState(false);
   const [showSupplementModal, setShowSupplementModal] = useState(false);
 
-  // New Vaccine Form State with synchronized Days & Weeks
+  // New Vaccine Form State
   const [vName, setVName] = useState('');
   const [vDisease, setVDisease] = useState('');
   const [vShed, setVShed] = useState('Shed A - Hy-Line Layer');
@@ -174,9 +175,16 @@ export default function FlockHealthPage() {
   const [sRoute, setSRoute] = useState<'Drinking Water' | 'Feed Mix'>('Drinking Water');
   const [sFrequency, setSFrequency] = useState<NutritionSupplementRecord['frequency']>('Daily');
 
+  const pendingVaccines = vaccinesList.filter((v) => v.status === 'Scheduled' || v.status === 'Overdue');
+  const activeSupplements = supplementsList.filter((s) => s.status === 'Active');
   const completedVaccines = vaccinesList.filter((v) => v.status === 'Completed').length;
-  const pendingVaccines = vaccinesList.filter((v) => v.status === 'Scheduled' || v.status === 'Overdue').length;
-  const activeSupplements = supplementsList.filter((s) => s.status === 'Active').length;
+
+  // Auto-pop up alert modal on mount if pending items exist
+  useEffect(() => {
+    if (pendingVaccines.length > 0 || activeSupplements.length > 0) {
+      setShowPendingPopup(true);
+    }
+  }, []);
 
   const handleDaysChange = (daysVal: string) => {
     setVAgeDays(daysVal);
@@ -265,12 +273,18 @@ export default function FlockHealthPage() {
           </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">Flock Health, Vaccination & Vitamin Schedules</h1>
           <p className="text-xs text-slate-300 mt-1">
-            Track flock vaccination compliance by <strong>Days & Weeks</strong>, schedule disease boosters (ND-IB, Gumboro, EDS), and manage liquid calcium & vitamin feed supplements.
+            Track flock vaccination compliance by <strong>Days & Weeks</strong>, pop up pending vaccine warnings, and schedule liquid calcium & vitamins.
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3">
+        {/* Action Buttons & Pending Alerts Pop-up Launcher */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => setShowPendingPopup(true)}
+            className="px-3.5 py-2 rounded-xl bg-red-950/80 border border-red-500/50 text-red-300 font-bold text-xs hover:bg-red-900 transition-all flex items-center gap-2 animate-pulse shadow-md"
+          >
+            <span>🔔 Pending Alerts ({pendingVaccines.length + activeSupplements.length})</span>
+          </button>
           <button
             onClick={() => setShowVaccineModal(true)}
             className="px-4 py-2 rounded-xl bg-[#0a2017] border border-emerald-500/40 text-emerald-300 font-semibold text-xs hover:bg-[#133e2b] transition-all flex items-center gap-2"
@@ -302,7 +316,7 @@ export default function FlockHealthPage() {
             <span>Vaccines Pending / Due</span>
             <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-300">⏳</span>
           </div>
-          <div className="text-3xl font-extrabold text-white font-mono">{pendingVaccines} <span className="text-xs font-normal text-amber-300">Scheduled</span></div>
+          <div className="text-3xl font-extrabold text-white font-mono">{pendingVaccines.length} <span className="text-xs font-normal text-amber-300">Scheduled</span></div>
           <div className="text-xs text-amber-400 font-semibold">1 Overdue booster warning</div>
         </div>
 
@@ -311,7 +325,7 @@ export default function FlockHealthPage() {
             <span>Active Vitamin Regimens</span>
             <span className="p-1.5 rounded-lg bg-blue-500/20 text-blue-300">💊</span>
           </div>
-          <div className="text-3xl font-extrabold text-white font-mono">{activeSupplements} <span className="text-xs font-normal text-blue-300 font-mono">Active</span></div>
+          <div className="text-3xl font-extrabold text-white font-mono">{activeSupplements.length} <span className="text-xs font-normal text-blue-300 font-mono">Active</span></div>
           <div className="text-xs text-blue-400 font-semibold">Calcium D3 & Anti-Stress Pack</div>
         </div>
 
@@ -494,6 +508,133 @@ export default function FlockHealthPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* POP-UP MODAL: URGENT PENDING VACCINE & VITAMIN ALERTS */}
+      {showPendingPopup && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-[#091b12] border border-red-500/50 rounded-3xl p-6 space-y-6 shadow-2xl animate-fade-in">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#133e2b] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-red-600/30 border border-red-500/50 flex items-center justify-center text-xl animate-pulse">
+                  🔔
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-red-400 uppercase tracking-wider">URGENT VETERINARY ATTENTION REQUIRED</div>
+                  <h3 className="text-xl font-extrabold text-white">Pending Vaccine Doses & Active Vitamin Regimens</h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPendingPopup(false)}
+                className="text-slate-400 hover:text-white text-lg font-bold p-1 rounded-lg bg-slate-900"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content Lists */}
+            <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
+              {/* Section 1: Pending & Overdue Vaccines */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>💉 Pending / Overdue Vaccine Doses</span>
+                    <span className="px-2 py-0.5 rounded-full bg-red-950 text-red-300 border border-red-500/40 text-[10px]">
+                      {pendingVaccines.length} Pending
+                    </span>
+                  </h4>
+                </div>
+
+                {pendingVaccines.map((v) => (
+                  <div
+                    key={v.id}
+                    className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      v.status === 'Overdue'
+                        ? 'bg-red-950/40 border-red-500/60 text-white'
+                        : 'bg-[#06140e] border-[#133e2b] text-slate-200'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-white">{v.vaccineName}</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            v.status === 'Overdue' ? 'bg-red-600 text-white animate-pulse' : 'bg-amber-500/20 text-amber-300'
+                          }`}
+                        >
+                          {v.status === 'Overdue' ? '🔴 OVERDUE WARNING' : '🟡 SCHEDULED'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-300">
+                        Target: <strong className="text-white">{v.targetDisease}</strong> | Shed: <strong className="text-amber-300">{v.shedName}</strong>
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-mono">
+                        Flock Age: <strong className="text-emerald-300">Day {v.flockAgeDays} ({v.flockAgeWeeks} Weeks)</strong> | Method: {v.administrationMethod}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => toggleVaccineStatus(v.id)}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shrink-0 self-end sm:self-center"
+                    >
+                      Administer Dose Now 💉
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Section 2: Active Vitamin & Nutrition Regimens */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>💊 Active Daily Vitamin & Supplement Regimens</span>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-500/40 text-[10px]">
+                      {activeSupplements.length} Active
+                    </span>
+                  </h4>
+                </div>
+
+                {activeSupplements.map((s) => (
+                  <div key={s.id} className="p-4 rounded-2xl bg-[#06140e] border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="font-bold text-sm text-white flex items-center gap-2">
+                        <span>{s.supplementName}</span>
+                        <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 text-[10px]">{s.category}</span>
+                      </div>
+                      <div className="text-xs text-amber-300 font-mono font-medium">Dosage: {s.dosagePattern}</div>
+                      <div className="text-[11px] text-slate-400">
+                        Target Shed: <strong className="text-slate-200">{s.shedName}</strong> | Route: {s.administrationRoute} ({s.frequency})
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        alert(`Confirmed today's dose of ${s.supplementName} given to ${s.shedName}!`);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-md shrink-0 self-end sm:self-center"
+                    >
+                      Confirm Dose Given 💊
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-4 border-t border-[#133e2b] flex items-center justify-between text-xs">
+              <span className="text-slate-400 text-[11px]">
+                Veterinary protocol requirement: Administer vaccines within 24 hours of schedule.
+              </span>
+              <button
+                onClick={() => setShowPendingPopup(false)}
+                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold"
+              >
+                Close & Continue ERP
+              </button>
+            </div>
           </div>
         </div>
       )}
