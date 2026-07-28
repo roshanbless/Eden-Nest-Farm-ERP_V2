@@ -6,7 +6,7 @@ export interface Product {
   sku: string;
   description: string;
   category: 'eggs_dozen' | 'eggs_bulk' | 'processed' | 'feed' | 'packaging' | 'manure_organic';
-  unit_of_measure: 'pack_6' | 'pack_12' | 'tray' | 'dozen' | 'carton' | 'kg' | 'litre' | 'bag_5kg' | 'bag_10kg' | 'bag_50kg';
+  unit_of_measure: 'pack_6' | 'pack_12' | 'pack_30' | 'tray' | 'dozen' | 'carton' | 'kg' | 'litre' | 'bag_5kg' | 'bag_10kg' | 'bag_50kg';
   base_price: number;
   weight_grams?: number;
   is_active: boolean;
@@ -74,9 +74,9 @@ export interface Order {
 export const mockProducts: Product[] = [
   {
     id: 'prod-00',
-    name: 'Fresh Farm Organic 6-Egg Pack (6 Eggs tray)',
+    name: 'Pack of 6 (6 Eggs)',
     sku: 'EGGS-PACK-6',
-    description: 'Grade A Large Fresh Organic Brown Eggs packed in 6 Eggs tray (6-Egg Pack).',
+    description: 'Grade A Large Fresh Organic Eggs in 6-egg pack.',
     category: 'eggs_dozen',
     unit_of_measure: 'pack_6',
     base_price: 50,
@@ -86,9 +86,9 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-02',
-    name: 'Premium Organic 12-Egg Pack (12 Eggs tray)',
+    name: 'Pack of 12 (12 Eggs)',
     sku: 'EGGS-PACK-12',
-    description: 'Grade A Selected Organic Brown Eggs in 12 Eggs tray (12-Egg Pack).',
+    description: 'Grade A Selected Organic Brown Eggs in 12-egg pack.',
     category: 'eggs_dozen',
     unit_of_measure: 'pack_12',
     base_price: 95,
@@ -98,11 +98,11 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod-01',
-    name: 'Fresh Farm Eggs (30-Egg Tray)',
-    sku: 'EGGS-TRAY-30',
-    description: 'Grade A Large Fresh Farm Eggs packed in eco-friendly pulp tray (30 Eggs).',
+    name: 'Pack of 30 (30 Eggs)',
+    sku: 'EGGS-PACK-30',
+    description: 'Grade A Large Fresh Farm Eggs in eco-friendly 30-egg tray pack.',
     category: 'eggs_bulk',
-    unit_of_measure: 'tray',
+    unit_of_measure: 'pack_30',
     base_price: 210,
     weight_grams: 1800,
     is_active: true,

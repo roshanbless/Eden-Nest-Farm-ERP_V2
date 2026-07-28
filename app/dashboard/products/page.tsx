@@ -175,9 +175,9 @@ export default function ProductsPage() {
                     onChange={(e: any) => setUnit(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold text-emerald-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   >
-                    <option value="pack_6">6-Egg Pack (6 Eggs tray)</option>
-                    <option value="pack_12">12-Egg Pack (12 Eggs tray)</option>
-                    <option value="tray">30-Egg Tray (30 Eggs tray)</option>
+                    <option value="pack_6">Pack of 6 (6 Eggs)</option>
+                    <option value="pack_12">Pack of 12 (12 Eggs)</option>
+                    <option value="pack_30">Pack of 30 (30 Eggs / Tray)</option>
                     <option value="carton">Commercial Carton (210 Eggs / 7 Trays)</option>
                     <option value="bag_5kg">5 kg Organic Manure Zip Pouch</option>
                     <option value="bag_10kg">10 kg Organic Manure Garden Bag</option>
