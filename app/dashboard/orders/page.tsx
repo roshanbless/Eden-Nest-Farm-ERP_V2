@@ -3,6 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import { fetchOrders, Order, mockOrders, mockProducts, Product } from '@/lib/api/commerce';
 
+interface ChannelPricing {
+  id: string;
+  name: string;
+  code: string;
+  multiplier: number;
+}
+
+const salesChannels: ChannelPricing[] = [
+  { id: 'ch-d2c', name: 'Direct Farm-to-Consumer (D2C)', code: 'DIRECT_D2C', multiplier: 1.05 },
+  { id: 'ch-retail', name: 'Branded Retail Packs', code: 'BRANDED_RETAIL', multiplier: 1.00 },
+  { id: 'ch-horeca', name: 'Hotels, Bakeries & Restaurants (HORECA)', code: 'HOTEL_BAKERY', multiplier: 0.97 },
+  { id: 'ch-inst', name: 'Institutional Contracts', code: 'INSTITUTIONAL', multiplier: 0.92 },
+  { id: 'ch-necc', name: 'NECC Overflow Wholesale', code: 'NECC_OVERFLOW', multiplier: 0.88 },
+];
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [loading, setLoading] = useState(false);
@@ -14,10 +29,12 @@ export default function OrdersPage() {
   const [customerName, setCustomerName] = useState('Metro Fresh Mart');
   const [customerPhone, setCustomerPhone] = useState('+91 98765 22110');
   const [orderType, setOrderType] = useState<'one_time' | 'subscription' | 'bulk_order'>('bulk_order');
+  const [selectedChannelId, setSelectedChannelId] = useState('ch-retail');
   const [packagingMode, setPackagingMode] = useState<'single' | 'pack' | 'bulk'>('pack');
   const [selectedProductId, setSelectedProductId] = useState('prod-01');
   
-  // EDITABLE PRICE & QUANTITY FIELDS
+  // Dynamic Base Rate per Egg & Editable Unit Price
+  const [marketBaseEggPrice, setMarketBaseEggPrice] = useState<number>(8.00);
   const [editableUnitPrice, setEditableUnitPrice] = useState('240');
   const [quantity, setQuantity] = useState('10');
   const [deliveryAddress, setDeliveryAddress] = useState('Indiranagar, Bengaluru 560038');
@@ -37,16 +54,26 @@ export default function OrdersPage() {
     loadData();
   }, []);
 
-  // Sync default price when packaging mode or product changes
-  const handleProductOrModeChange = (productId: string, mode: 'single' | 'pack' | 'bulk') => {
-    setSelectedProductId(productId);
+  // Recalculate default price when channel, packaging mode, or product changes
+  const updateCalculatedRate = (channelId: string, mode: 'single' | 'pack' | 'bulk', productId: string) => {
+    setSelectedChannelId(channelId);
     setPackagingMode(mode);
+    setSelectedProductId(productId);
+
+    const channel = salesChannels.find((c) => c.id === channelId) || salesChannels[1];
+    const channelEggRate = marketBaseEggPrice * channel.multiplier;
 
     if (mode === 'single') {
-      setEditableUnitPrice('8.00');
+      setEditableUnitPrice(channelEggRate.toFixed(2));
     } else {
-      const prod = mockProducts.find((p) => p.id === productId) || mockProducts[0];
-      setEditableUnitPrice(prod.base_price.toString());
+      let eggCount = 30;
+      if (productId === 'prod-00') eggCount = 6;
+      if (productId === 'prod-02') eggCount = 12;
+      if (productId === 'prod-01') eggCount = 30;
+      if (productId === 'prod-03') eggCount = 210;
+
+      const packPrice = Math.round(eggCount * channelEggRate);
+      setEditableUnitPrice(packPrice.toString());
     }
   };
 
@@ -62,7 +89,6 @@ export default function OrdersPage() {
   const confirmedCount = orders.filter((o) => o.order_status === 'confirmed' || o.order_status === 'packed').length;
   const inTransitCount = orders.filter((o) => o.order_status === 'out_for_delivery').length;
 
-  // Next status transition helper
   const advanceStatus = (orderId: string, currentStatus: string) => {
     const statusSequence = ['pending', 'confirmed', 'packed', 'out_for_delivery', 'delivered'];
     const nextIdx = statusSequence.indexOf(currentStatus) + 1;
@@ -77,6 +103,7 @@ export default function OrdersPage() {
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
     const prod = mockProducts.find((p) => p.id === selectedProductId) || mockProducts[0];
+    const ch = salesChannels.find((c) => c.id === selectedChannelId) || salesChannels[1];
     const qtyNum = parseInt(quantity) || 1;
     const unitPriceNum = parseFloat(editableUnitPrice) || prod.base_price;
     const subtotalCalc = unitPriceNum * qtyNum;
@@ -109,7 +136,7 @@ export default function OrdersPage() {
         {
           id: `item-${Date.now()}`,
           product_id: prod.id,
-          product_name: `${prod.name} [${modeLabel}]`,
+          product_name: `${prod.name} [${ch.name} - ${modeLabel}]`,
           quantity: qtyNum,
           unit_price: unitPriceNum,
           line_total: subtotalCalc,
@@ -124,7 +151,7 @@ export default function OrdersPage() {
   const openPriceEditModal = (order: Order) => {
     setEditingOrderPrice(order);
     const item = order.items?.[0];
-    setModUnitPrice(item?.unit_price ? item.unit_price.toString() : '210');
+    setModUnitPrice(item?.unit_price ? item.unit_price.toString() : '240');
     setModDiscount(order.discount ? order.discount.toString() : '0');
   };
 
@@ -169,11 +196,11 @@ export default function OrdersPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-2">
-            🛒 Sales Order Workflow & Custom Pricing Engine
+            🛒 Channel Mix Sales Engine & NECC Price Control
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Order Management & Custom Pricing</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Order Management & Channel Mix Pricing</h1>
           <p className="text-xs text-slate-300 mt-1">
-            Create B2B & Retail sales orders in <strong>Single Loose, Pack Trays, or Bulk Wholesale</strong> with <strong>100% Editable Unit Prices</strong>.
+            Create sales orders across 5 channels: <strong>Direct, Hotels/Bakeries, Institutional, Branded Retail & NECC Overflow</strong> with <strong>100% Editable Unit Prices</strong>.
           </p>
         </div>
 
@@ -337,7 +364,7 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Modal 1: Create Sales Order with Single, Pack, Bulk & Editable Price */}
+      {/* Modal 1: Create Sales Order with Channel Mix & Editable Price */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-[#091b12] border border-[#133e2b] rounded-3xl p-6 space-y-5 shadow-2xl">
@@ -356,45 +383,38 @@ export default function OrdersPage() {
                   required
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. Metro Fresh Mart"
+                  placeholder="e.g. Grand Plaza Hotel / Metro Mart"
                   className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Customer Phone</label>
-                  <input
-                    type="tel"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Order Type</label>
-                  <select
-                    value={orderType}
-                    onChange={(e: any) => setOrderType(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white"
-                  >
-                    <option value="bulk_order">Wholesale Bulk Order</option>
-                    <option value="one_time">Retail One-Time</option>
-                    <option value="subscription">Recurring Subscription</option>
-                  </select>
-                </div>
+              {/* SALES CHANNEL MIX SELECTOR */}
+              <div className="p-3 rounded-xl bg-[#06140e] border border-[#133e2b] space-y-1.5">
+                <label className="block text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+                  Target Sales Channel Tier
+                </label>
+                <select
+                  value={selectedChannelId}
+                  onChange={(e) => updateCalculatedRate(e.target.value, packagingMode, selectedProductId)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-amber-500/50 text-amber-300 font-bold text-xs"
+                >
+                  {salesChannels.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.multiplier >= 1 ? `+${Math.round((c.multiplier - 1) * 100)}%` : `${Math.round((c.multiplier - 1) * 100)}%`})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Packaging Mode Selector (Single, Pack, Bulk) */}
               <div className="p-3 rounded-xl bg-[#06140e] border border-[#133e2b] space-y-2">
-                <label className="block text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-                  Select Packaging Mode
+                <label className="block text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                  Packaging Specification
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => handleProductOrModeChange(selectedProductId, 'single')}
+                    onClick={() => updateCalculatedRate(selectedChannelId, 'single', selectedProductId)}
                     className={`py-2 px-2 rounded-xl text-[11px] font-bold transition-all border ${
                       packagingMode === 'single'
                         ? 'bg-emerald-600 text-white border-emerald-400'
@@ -405,7 +425,7 @@ export default function OrdersPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleProductOrModeChange(selectedProductId, 'pack')}
+                    onClick={() => updateCalculatedRate(selectedChannelId, 'pack', selectedProductId)}
                     className={`py-2 px-2 rounded-xl text-[11px] font-bold transition-all border ${
                       packagingMode === 'pack'
                         ? 'bg-emerald-600 text-white border-emerald-400'
@@ -416,7 +436,7 @@ export default function OrdersPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleProductOrModeChange(selectedProductId, 'bulk')}
+                    onClick={() => updateCalculatedRate(selectedChannelId, 'bulk', selectedProductId)}
                     className={`py-2 px-2 rounded-xl text-[11px] font-bold transition-all border ${
                       packagingMode === 'bulk'
                         ? 'bg-emerald-600 text-white border-emerald-400'
@@ -433,7 +453,7 @@ export default function OrdersPage() {
                   <label className="block font-semibold text-slate-300 mb-1">Select Product SKU</label>
                   <select
                     value={selectedProductId}
-                    onChange={(e) => handleProductOrModeChange(e.target.value, packagingMode)}
+                    onChange={(e) => updateCalculatedRate(selectedChannelId, packagingMode, e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white"
                   >
                     {mockProducts.map((p) => (
