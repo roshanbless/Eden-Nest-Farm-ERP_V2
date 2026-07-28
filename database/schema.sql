@@ -260,6 +260,7 @@ CREATE TABLE IF NOT EXISTS vaccination_schedules (
   farm_id UUID REFERENCES farms(id) ON DELETE CASCADE,
   shed_name VARCHAR(100) NOT NULL,
   flock_age_days INT NOT NULL, -- Measured in Days (e.g. Day 1, Day 14, Day 28, Day 112)
+  flock_age_weeks NUMERIC(5, 1), -- Measured in Weeks (e.g. 4 Weeks, 16 Weeks, 18 Weeks)
   scheduled_date DATE NOT NULL,
   administered_date DATE,
   administration_method VARCHAR(100) DEFAULT 'Drinking Water',

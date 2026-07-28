@@ -8,6 +8,7 @@ interface VaccinationRecord {
   targetDisease: string;
   shedName: string;
   flockAgeDays: number;
+  flockAgeWeeks: number;
   scheduledDate: string;
   administeredDate?: string;
   administrationMethod: 'Drinking Water' | 'Eye Drop' | 'Subcutaneous Injection' | 'Wing Web Spray';
@@ -37,7 +38,8 @@ const mockVaccinations: VaccinationRecord[] = [
     vaccineName: 'Lasota ND-IB Booster',
     targetDisease: 'Newcastle Disease & Infectious Bronchitis',
     shedName: 'Shed A - Hy-Line Layer',
-    flockAgeDays: 126, // Day 126 / Wk 18
+    flockAgeDays: 126,
+    flockAgeWeeks: 18,
     scheduledDate: '2026-07-20',
     administeredDate: '2026-07-20',
     administrationMethod: 'Drinking Water',
@@ -51,7 +53,8 @@ const mockVaccinations: VaccinationRecord[] = [
     vaccineName: 'Gumboro IBD Live (Intermediate Plus)',
     targetDisease: 'Infectious Bursal Disease',
     shedName: 'Shed C - Bovans Pullet',
-    flockAgeDays: 28, // Day 28 / Wk 4
+    flockAgeDays: 28,
+    flockAgeWeeks: 4,
     scheduledDate: '2026-07-22',
     administeredDate: '2026-07-22',
     administrationMethod: 'Eye Drop',
@@ -65,7 +68,8 @@ const mockVaccinations: VaccinationRecord[] = [
     vaccineName: 'EDS-76 Oil Emulsion (Egg Drop Syndrome)',
     targetDisease: 'Egg Drop Syndrome & Shell Softening',
     shedName: 'Shed B - Lohmann Brown',
-    flockAgeDays: 112, // Day 112 / Wk 16
+    flockAgeDays: 112,
+    flockAgeWeeks: 16,
     scheduledDate: '2026-07-30',
     administrationMethod: 'Subcutaneous Injection',
     dosage: '0.5ml per bird',
@@ -78,7 +82,8 @@ const mockVaccinations: VaccinationRecord[] = [
     vaccineName: 'Fowl Pox Live Vaccine',
     targetDisease: 'Fowl Pox Cutaneous Lesions',
     shedName: 'Shed C - Bovans Pullet',
-    flockAgeDays: 56, // Day 56 / Wk 8
+    flockAgeDays: 56,
+    flockAgeWeeks: 8,
     scheduledDate: '2026-07-24',
     administrationMethod: 'Wing Web Spray',
     dosage: 'Double needle stab',
@@ -151,11 +156,12 @@ export default function FlockHealthPage() {
   const [showVaccineModal, setShowVaccineModal] = useState(false);
   const [showSupplementModal, setShowSupplementModal] = useState(false);
 
-  // New Vaccine Form State
+  // New Vaccine Form State with synchronized Days & Weeks
   const [vName, setVName] = useState('');
   const [vDisease, setVDisease] = useState('');
   const [vShed, setVShed] = useState('Shed A - Hy-Line Layer');
   const [vAgeDays, setVAgeDays] = useState('112');
+  const [vAgeWeeks, setVAgeWeeks] = useState('16');
   const [vMethod, setVMethod] = useState<VaccinationRecord['administrationMethod']>('Drinking Water');
   const [vBatch, setVBatch] = useState('');
   const [vVet, setVVet] = useState('Dr. Priya Nair (Vety Surgeon)');
@@ -172,14 +178,34 @@ export default function FlockHealthPage() {
   const pendingVaccines = vaccinesList.filter((v) => v.status === 'Scheduled' || v.status === 'Overdue').length;
   const activeSupplements = supplementsList.filter((s) => s.status === 'Active').length;
 
+  const handleDaysChange = (daysVal: string) => {
+    setVAgeDays(daysVal);
+    const d = parseInt(daysVal);
+    if (!isNaN(d)) {
+      setVAgeWeeks((d / 7).toFixed(1).replace('.0', ''));
+    }
+  };
+
+  const handleWeeksChange = (weeksVal: string) => {
+    setVAgeWeeks(weeksVal);
+    const w = parseFloat(weeksVal);
+    if (!isNaN(w)) {
+      setVAgeDays(Math.round(w * 7).toString());
+    }
+  };
+
   const handleSaveVaccine = (e: React.FormEvent) => {
     e.preventDefault();
+    const daysNum = parseInt(vAgeDays) || 112;
+    const weeksNum = parseFloat(vAgeWeeks) || Math.round(daysNum / 7);
+
     const newVac: VaccinationRecord = {
       id: `VAC-${Date.now()}`,
       vaccineName: vName || 'ND-IB Booster',
       targetDisease: vDisease || 'Newcastle & IB Protection',
       shedName: vShed,
-      flockAgeDays: parseInt(vAgeDays) || 112,
+      flockAgeDays: daysNum,
+      flockAgeWeeks: weeksNum,
       scheduledDate: new Date().toISOString().split('T')[0],
       administrationMethod: vMethod,
       dosage: 'Standard Dosage',
@@ -239,7 +265,7 @@ export default function FlockHealthPage() {
           </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">Flock Health, Vaccination & Vitamin Schedules</h1>
           <p className="text-xs text-slate-300 mt-1">
-            Track flock vaccination compliance by <strong>Flock Age in Days</strong>, schedule disease boosters (ND-IB, Gumboro, EDS), and manage liquid calcium & vitamin feed supplements.
+            Track flock vaccination compliance by <strong>Days & Weeks</strong>, schedule disease boosters (ND-IB, Gumboro, EDS), and manage liquid calcium & vitamin feed supplements.
           </p>
         </div>
 
@@ -328,7 +354,7 @@ export default function FlockHealthPage() {
         <div className="p-6 rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-4 glass-card">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-bold text-white">Flock Immunization & Booster Logs</h3>
-            <span className="text-xs text-amber-400 font-mono">Age Measured in Days | Protocol: ND-IB | IBD | EDS</span>
+            <span className="text-xs text-amber-400 font-mono">Age Measured in Days & Weeks | Protocol: ND-IB | IBD | EDS</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -336,7 +362,7 @@ export default function FlockHealthPage() {
               <thead>
                 <tr className="border-b border-[#133e2b] text-slate-300 font-bold uppercase tracking-wider">
                   <th className="pb-3">VACCINE / DISEASE</th>
-                  <th className="pb-3">FLOCK SHED / AGE (DAYS)</th>
+                  <th className="pb-3">FLOCK SHED / AGE (DAYS & WEEKS)</th>
                   <th className="pb-3">SCHEDULED DATE</th>
                   <th className="pb-3">ADMINISTRATION METHOD</th>
                   <th className="pb-3">DOSAGE</th>
@@ -354,8 +380,13 @@ export default function FlockHealthPage() {
                     </td>
                     <td>
                       <div className="text-slate-200 font-semibold">{v.shedName}</div>
-                      <div className="text-[10px] text-amber-400 font-mono font-bold">
-                        Day {v.flockAgeDays} <span className="text-slate-400 font-normal">({Math.floor(v.flockAgeDays / 7)} Weeks)</span>
+                      <div className="flex items-center gap-1.5 mt-0.5 font-mono text-[11px]">
+                        <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30 font-bold">
+                          Day {v.flockAgeDays}
+                        </span>
+                        <span className="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/30 font-bold">
+                          {v.flockAgeWeeks} Weeks
+                        </span>
                       </div>
                     </td>
                     <td className="text-slate-300 font-mono">{v.scheduledDate}</td>
@@ -514,31 +545,48 @@ export default function FlockHealthPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Flock Age (in Days)</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="e.g. 112 (Day 112)"
-                    value={vAgeDays}
-                    onChange={(e) => setVAgeDays(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-mono font-bold text-amber-300"
-                  />
+              {/* Dual Synchronized Flock Age (Days & Weeks) */}
+              <div className="p-3 rounded-xl bg-[#06140e] border border-[#133e2b] space-y-2">
+                <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Flock Age Specification (Days & Weeks)</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Flock Age (in Days)</label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="e.g. 112"
+                      value={vAgeDays}
+                      onChange={(e) => handleDaysChange(e.target.value)}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-[#133e2b] text-emerald-300 font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Flock Age (in Weeks)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      required
+                      placeholder="e.g. 16"
+                      value={vAgeWeeks}
+                      onChange={(e) => handleWeeksChange(e.target.value)}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-[#133e2b] text-amber-300 font-mono font-bold"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Administration Method</label>
-                  <select
-                    value={vMethod}
-                    onChange={(e: any) => setVMethod(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-semibold text-emerald-300"
-                  >
-                    <option value="Drinking Water">Drinking Water</option>
-                    <option value="Eye Drop">Eye Drop</option>
-                    <option value="Subcutaneous Injection">Subcutaneous Injection</option>
-                    <option value="Wing Web Spray">Wing Web Spray</option>
-                  </select>
-                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Administration Method</label>
+                <select
+                  value={vMethod}
+                  onChange={(e: any) => setVMethod(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-semibold text-emerald-300"
+                >
+                  <option value="Drinking Water">Drinking Water</option>
+                  <option value="Eye Drop">Eye Drop</option>
+                  <option value="Subcutaneous Injection">Subcutaneous Injection</option>
+                  <option value="Wing Web Spray">Wing Web Spray</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
