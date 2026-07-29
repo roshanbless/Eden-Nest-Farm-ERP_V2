@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { useLanguage, Language } from '@/lib/i18n/languageContext';
 
 interface HeaderProps {
   collapsed: boolean;
@@ -10,8 +11,11 @@ interface HeaderProps {
 
 export default function Header({ collapsed }: HeaderProps) {
   const router = useRouter();
+  const { language, setLanguage, t } = useLanguage();
+
   const [selectedFarm, setSelectedFarm] = useState('Eden Nest Main Farm (Shed A-D)');
   const [showFarmDropdown, setShowFarmDropdown] = useState(false);
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -21,12 +25,20 @@ export default function Header({ collapsed }: HeaderProps) {
     { id: '3', name: 'South Processing & Cooling Plant', location: 'Hosur Hub', status: 'Processing' },
   ];
 
+  const languagesList: { code: Language; name: string; flag: string }[] = [
+    { code: 'en', name: 'English', flag: '🇬🇧' },
+    { code: 'ml', name: 'മലയാളം (Malayalam)', flag: '🇮🇳' },
+    { code: 'hi', name: 'हिंदी (Hindi)', flag: '🇮🇳' },
+  ];
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     document.cookie = 'eden-auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
     document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
     router.push('/login');
   };
+
+  const currentLangObj = languagesList.find((l) => l.code === language) || languagesList[0];
 
   return (
     <header
@@ -43,7 +55,7 @@ export default function Header({ collapsed }: HeaderProps) {
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#06140e] border border-[#133e2b] hover:border-emerald-500/40 text-xs font-semibold text-white transition-all"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="max-w-[180px] sm:max-w-[240px] truncate">{selectedFarm}</span>
+            <span className="max-w-[160px] sm:max-w-[220px] truncate">{selectedFarm}</span>
             <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
@@ -52,7 +64,7 @@ export default function Header({ collapsed }: HeaderProps) {
           {showFarmDropdown && (
             <div className="absolute top-full left-0 mt-2 w-72 bg-[#091b12] border border-[#133e2b] rounded-2xl shadow-xl p-2 z-50 space-y-1">
               <div className="px-3 py-1.5 text-[10px] font-bold text-amber-400/90 tracking-wider uppercase">
-                Select Active Farm Location
+                {t.activeFarm}
               </div>
               {farms.map((f) => (
                 <button
@@ -81,10 +93,10 @@ export default function Header({ collapsed }: HeaderProps) {
         </div>
 
         {/* Global Search Bar */}
-        <div className="relative hidden md:block flex-1">
+        <div className="relative hidden lg:block flex-1">
           <input
             type="text"
-            placeholder="Search batches, orders, subscriptions, customers... (Ctrl+K)"
+            placeholder={t.searchPlaceholder}
             className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
           <svg
@@ -100,6 +112,48 @@ export default function Header({ collapsed }: HeaderProps) {
 
       {/* Right Controls */}
       <div className="flex items-center gap-3">
+        {/* MULTI-LANGUAGE SELECTOR DROPDOWN (English, Malayalam, Hindi) */}
+        <div className="relative">
+          <button
+            onClick={() => setShowLangDropdown(!showLangDropdown)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#06140e] border border-amber-500/40 hover:border-amber-400 text-xs font-bold text-amber-300 shadow-sm transition-all"
+          >
+            <span>{currentLangObj.flag}</span>
+            <span>{currentLangObj.name}</span>
+            <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {showLangDropdown && (
+            <div className="absolute top-full right-0 mt-2 w-56 bg-[#091b12] border border-[#133e2b] rounded-2xl shadow-xl p-2 z-50 space-y-1">
+              <div className="px-3 py-1.5 text-[10px] font-bold text-amber-400 tracking-wider uppercase border-b border-[#133e2b]">
+                🌐 {t.selectLanguage}
+              </div>
+              {languagesList.map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => {
+                    setLanguage(l.code);
+                    setShowLangDropdown(false);
+                  }}
+                  className={`w-full text-left p-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                    language === l.code
+                      ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
+                      : 'text-slate-300 hover:bg-[#133e2b]/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span>{l.flag}</span>
+                    <span>{l.name}</span>
+                  </div>
+                  {language === l.code && <span className="text-emerald-400 font-bold">✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Quick Action Button */}
         <button
           onClick={() => router.push('/dashboard/production')}
@@ -108,7 +162,7 @@ export default function Header({ collapsed }: HeaderProps) {
           <svg className="w-4 h-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Log Production
+          {t.logProduction}
         </button>
 
         {/* Notifications Button */}
@@ -176,7 +230,7 @@ export default function Header({ collapsed }: HeaderProps) {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                Sign Out of Workspace
+                {t.signOut}
               </button>
             </div>
           )}
