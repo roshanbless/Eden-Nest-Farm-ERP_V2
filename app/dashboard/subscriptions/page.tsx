@@ -21,7 +21,7 @@ export default function SubscriptionsPage() {
   const [customerName, setCustomerName] = useState('Priya Sharma');
   const [customerPhone, setCustomerPhone] = useState('+91 98765 88123');
   const [customerEmail, setCustomerEmail] = useState('priya@sharma.in');
-  const [selectedPlanId, setSelectedPlanId] = useState('plan-103');
+  const [selectedPlanId, setSelectedPlanId] = useState('plan-essentials');
   const [deliveryAddress, setDeliveryAddress] = useState('HSR Layout Sector 1, Bengaluru 560102');
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function SubscriptionsPage() {
     let multiplier = 1;
     if (s.frequency === 'weekly') multiplier = 4;
     if (s.frequency === 'biweekly') multiplier = 2;
-    return sum + s.amount * multiplier;
+    return sum + (s.amount || 570) * multiplier;
   }, 0);
 
   const pausedCount = subscriptions.filter((s) => s.status === 'paused').length;
@@ -73,7 +73,7 @@ export default function SubscriptionsPage() {
 
   const handleCreateSubscription = (e: React.FormEvent) => {
     e.preventDefault();
-    const planObj = plans.find((p) => p.id === selectedPlanId) || plans[0];
+    const planObj = plans.find((p) => p.id === selectedPlanId) || plans[1];
 
     const newSub: Subscription = {
       id: `sub-${Date.now()}`,
@@ -82,8 +82,8 @@ export default function SubscriptionsPage() {
       customer_name: customerName,
       customer_phone: customerPhone,
       customer_email: customerEmail,
-      plan_name: planObj.name,
-      amount: planObj.price,
+      plan_name: `${planObj.name} (${planObj.egg_label})`,
+      amount: planObj.price || 570,
       frequency: planObj.frequency,
       start_date: new Date().toISOString().split('T')[0],
       next_billing_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
@@ -108,7 +108,7 @@ export default function SubscriptionsPage() {
           </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">Recurring Egg Subscriptions</h1>
           <p className="text-xs text-slate-300 mt-1">
-            Manage recurring doorstep plans aligned with Product Catalog SKUs: <strong>Pack of 6, Pack of 12, Pack of 30, and Wholesale Cartons</strong>.
+            Manage doorstep plans: <strong>Eden Starter (30 eggs), Eden Essentials (60 eggs), Eden Family (90 eggs), Eden Premium (120+12), Cafe & Restaurant & Hotel</strong>.
           </p>
         </div>
 
@@ -134,7 +134,7 @@ export default function SubscriptionsPage() {
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-blue-500/30 glass-card">
           <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Total Active Subscribers</div>
           <div className="text-3xl font-extrabold text-blue-400 font-mono mt-1">{totalSubscribersCount.toLocaleString()}</div>
-          <div className="text-xs text-blue-400 font-semibold mt-1">Doorstep household accounts</div>
+          <div className="text-xs text-blue-400 font-semibold mt-1">Doorstep household & B2B accounts</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-amber-500/30 glass-card">
@@ -144,58 +144,80 @@ export default function SubscriptionsPage() {
         </div>
 
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-purple-500/30 glass-card">
-          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Catalog SKU Alignment</div>
+          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Plan Alignment</div>
           <div className="text-3xl font-extrabold text-purple-400 font-mono mt-1">100%</div>
-          <div className="text-xs text-purple-400 font-semibold mt-1">Matched to Pack of 6, 12, 30 & Cartons</div>
+          <div className="text-xs text-purple-400 font-semibold mt-1">Matched to Eden Starter, Essentials, Family, Premium</div>
         </div>
       </div>
 
-      {/* Subscription Plans Grid (Aligned to Product Catalog SKUs) */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold text-white">Product Catalog Subscription Plans ({plans.length})</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Subscription Plans Grid (Matched 100% to Attached UI Design) */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-extrabold text-white tracking-tight">Eden Subscription Tier Catalog</h2>
+          <span className="text-xs text-emerald-400 font-mono font-semibold">6 Official Plans Available</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {plans.map((plan) => (
-            <div key={plan.id} className="p-6 rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-4 flex flex-col justify-between glass-card">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
-                    {plan.sku}
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
-                    {plan.discount_percentage}% OFF
+            <div
+              key={plan.id}
+              className={`relative p-7 rounded-[28px] bg-white text-slate-900 shadow-xl space-y-6 flex flex-col justify-between transition-all duration-300 hover:scale-[1.01] ${
+                plan.is_popular ? 'ring-4 ring-emerald-600 border-emerald-600' : 'border border-slate-200'
+              }`}
+            >
+              {/* MOST POPULAR BADGE */}
+              {plan.is_popular && (
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#0a3821] text-emerald-300 text-[10px] font-extrabold uppercase tracking-widest shadow-md">
+                  MOST POPULAR
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {/* Header Row */}
+                <div className="flex items-start justify-between">
+                  <h3 className="text-2xl font-serif font-bold text-slate-900 tracking-tight">{plan.name}</h3>
+                  <span className="text-xs font-medium text-slate-500 font-sans tracking-wide">
+                    {plan.egg_label}
                   </span>
                 </div>
 
-                <h3 className="text-base font-bold text-white leading-tight">{plan.name}</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">{plan.description}</p>
+                {/* Price Display */}
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-serif font-bold text-slate-950">{plan.price_display}</span>
+                </div>
 
-                <ul className="space-y-1.5 pt-2">
+                {/* Features List */}
+                <ul className="space-y-2.5 pt-2 border-t border-slate-100">
                   {plan.features.map((feat, idx) => (
-                    <li key={idx} className="text-[11px] text-slate-300 flex items-center gap-1.5">
-                      <span className="text-emerald-400 font-bold">✓</span> {feat}
+                    <li key={idx} className="text-xs font-medium text-slate-700 flex items-center gap-2.5">
+                      <span className="text-emerald-700 font-extrabold text-sm">✓</span>
+                      <span>{feat}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <div className="pt-4 border-t border-[#133e2b]/80 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase block font-semibold">Plan Price</span>
-                  <span className="text-xl font-extrabold text-amber-400 font-mono">₹{plan.price}</span>
-                  <span className="text-[10px] text-slate-400 block capitalize font-mono">/ {plan.frequency}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 block font-semibold">Subscribers</span>
-                  <span className="text-sm font-bold text-white font-mono">{plan.active_subscribers_count} Active</span>
-                </div>
-              </div>
+              {/* Bottom Action Button */}
+              <button
+                onClick={() => {
+                  setSelectedPlanId(plan.id);
+                  setShowCreateModal(true);
+                }}
+                className={`w-full py-3.5 rounded-2xl font-bold text-xs transition-all shadow-sm ${
+                  plan.is_popular
+                    ? 'bg-[#0e3b25] text-white hover:bg-[#144d31]'
+                    : 'bg-[#f8eedb] text-slate-900 hover:bg-[#f1e3c8]'
+                }`}
+              >
+                {plan.is_popular ? 'Selected' : 'Choose plan'}
+              </button>
             </div>
           ))}
         </div>
       </div>
 
       {/* Subscription Directory Navigation Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#133e2b] text-xs font-semibold">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#133e2b] text-xs font-semibold pt-4">
         {[
           { key: 'all', label: 'All Subscriptions' },
           { key: 'active', label: '🟢 Active' },
@@ -224,7 +246,7 @@ export default function SubscriptionsPage() {
               <tr className="border-b border-[#133e2b] text-slate-300 font-bold uppercase tracking-wider">
                 <th className="pb-3">SUB #</th>
                 <th className="pb-3">SUBSCRIBER</th>
-                <th className="pb-3">SKU PLAN</th>
+                <th className="pb-3">SUBSCRIPTION PLAN</th>
                 <th className="pb-3">FREQUENCY</th>
                 <th className="pb-3">AMOUNT</th>
                 <th className="pb-3">NEXT BILLING</th>
@@ -250,7 +272,7 @@ export default function SubscriptionsPage() {
                     </span>
                   </td>
                   <td className="font-extrabold text-amber-400 font-mono text-base">
-                    ₹{sub.amount}
+                    ₹{sub.amount.toLocaleString()}
                   </td>
                   <td className="text-slate-300 font-mono">{sub.next_billing_date}</td>
                   <td>
@@ -336,7 +358,7 @@ export default function SubscriptionsPage() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">Select Catalog Subscription Plan</label>
+                <label className="block font-semibold text-slate-300 mb-1">Select Subscription Plan</label>
                 <select
                   value={selectedPlanId}
                   onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -344,7 +366,7 @@ export default function SubscriptionsPage() {
                 >
                   {plans.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} (₹{p.price} / {p.frequency})
+                      {p.name} ({p.egg_label} - {p.price_display})
                     </option>
                   ))}
                 </select>
