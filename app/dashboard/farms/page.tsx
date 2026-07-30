@@ -2,25 +2,25 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { fetchFarms, saveFarmToSupabase, Farm, mockFarms } from '@/lib/api/farms';
+import { fetchFarms, saveFarmToSupabase, Farm } from '@/lib/api/farms';
 import { useLanguage } from '@/lib/i18n/languageContext';
 
 export default function FarmsPage() {
   const { t } = useLanguage();
-  const [farms, setFarms] = useState<Farm[]>(mockFarms);
-  const [loading, setLoading] = useState(false);
+  const [farms, setFarms] = useState<Farm[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
 
   // New Farm Form State
-  const [newFarmName, setNewFarmName] = useState('Eden Nest Wayanad Layer Site');
+  const [newFarmName, setNewFarmName] = useState('');
   const [newFarmType, setNewFarmType] = useState('Layer Farm Site (Egg Production)');
-  const [newLocation, setNewLocation] = useState('Wayanad, Kerala');
-  const [newManager, setNewManager] = useState('Rajesh Kumar (Farm Mgr)');
+  const [newLocation, setNewLocation] = useState('');
+  const [newManager, setNewManager] = useState('');
   const [newBreed, setNewBreed] = useState('Hy-Line Brown');
   const [newBirdCount, setNewBirdCount] = useState('25000');
   const [newCapacity, setNewCapacity] = useState('23500');
   const [newShedsCount, setNewShedsCount] = useState('4');
-  const [newLicense, setNewLicense] = useState('KL-POULTRY-2026-9901');
+  const [newLicense, setNewLicense] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -34,15 +34,15 @@ export default function FarmsPage() {
 
   const totalBirds = farms.reduce((sum, f) => sum + (f.total_bird_count || 0), 0);
   const totalCapacity = farms.reduce((sum, f) => sum + (f.production_capacity_daily || 0), 0);
-  const totalSheds = farms.reduce((sum, f) => sum + (f.sheds_count || 3), 0);
+  const totalSheds = farms.reduce((sum, f) => sum + (f.sheds_count || 0), 0);
 
   const handleAddFarm = async (e: React.FormEvent) => {
     e.preventDefault();
     const created: Farm = {
       id: `farm-${Date.now()}`,
-      name: newFarmName || 'New Eden Nest Poultry Site',
+      name: newFarmName || 'New Poultry Farm Site',
       location_name: newLocation || 'Kerala Region',
-      manager_name: newManager || 'Rajesh Kumar',
+      manager_name: newManager || 'Site Manager',
       total_bird_count: parseInt(newBirdCount) || 25000,
       production_capacity_daily: parseInt(newCapacity) || 23500,
       license_number: newLicense || `KL-POULTRY-2026-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -52,15 +52,18 @@ export default function FarmsPage() {
     };
 
     // Update Local React UI State
-    setFarms([created, ...farms]);
+    const updated = [created, ...farms];
+    setFarms(updated);
     setShowAddModal(false);
 
-    // Persist to Live Supabase PostgreSQL Database
+    // Persist to Live Supabase & LocalStorage
     await saveFarmToSupabase(created);
 
     // Reset Form
     setNewFarmName('');
     setNewLocation('');
+    setNewManager('');
+    setNewLicense('');
   };
 
   return (
@@ -93,7 +96,7 @@ export default function FarmsPage() {
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-emerald-500/30 glass-card">
           <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Total Active Poultry Farms</div>
           <div className="text-3xl font-extrabold text-white font-mono mt-2">{farms.length} <span className="text-xs text-emerald-400 font-normal">Sites Operational</span></div>
-          <div className="text-xs text-emerald-400 font-semibold mt-1">Kerala, Karnataka & Tamil Nadu Sites</div>
+          <div className="text-xs text-emerald-400 font-semibold mt-1">Real-time Registered Sites</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-amber-500/30 glass-card">
@@ -115,91 +118,109 @@ export default function FarmsPage() {
         </div>
       </div>
 
-      {/* Multi-Farm Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {farms.map((farm) => {
-          const capacityUtilization = Math.min(100, Math.round((farm.total_bird_count / (farm.production_capacity_daily || 50000)) * 100));
+      {/* Fresh Clean State / Multi-Farm Grid */}
+      {farms.length === 0 ? (
+        <div className="p-12 text-center rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-2xl">
+            🏡
+          </div>
+          <h3 className="text-xl font-bold text-white">No Poultry Farms Registered Yet</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            Demo data has been cleared. Click below to register your first farm site and start fresh with real live sync!
+          </p>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg inline-flex items-center gap-2"
+          >
+            <span>➕ Register Your First Poultry Farm</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {farms.map((farm) => {
+            const capacityUtilization = Math.min(100, Math.round((farm.total_bird_count / (farm.production_capacity_daily || 50000)) * 100));
 
-          return (
-            <div
-              key={farm.id}
-              className="p-6 rounded-3xl bg-[#091b12] border border-[#133e2b] hover:border-emerald-500/40 transition-all flex flex-col justify-between space-y-6 glass-card"
-            >
-              <div className="space-y-4">
-                {/* Header Badge & Title */}
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 uppercase tracking-wider">
-                      {farm.is_active ? 'Active Site' : 'Inactive'}
-                    </span>
-                    <h3 className="text-xl font-bold text-white mt-2 leading-tight">{farm.name}</h3>
-                    <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-1">
-                      <span>📍</span> {farm.location_name || 'Location Not Specified'}
-                    </p>
+            return (
+              <div
+                key={farm.id}
+                className="p-6 rounded-3xl bg-[#091b12] border border-[#133e2b] hover:border-emerald-500/40 transition-all flex flex-col justify-between space-y-6 glass-card"
+              >
+                <div className="space-y-4">
+                  {/* Header Badge & Title */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 uppercase tracking-wider">
+                        {farm.is_active ? 'Active Site' : 'Inactive'}
+                      </span>
+                      <h3 className="text-xl font-bold text-white mt-2 leading-tight">{farm.name}</h3>
+                      <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-1">
+                        <span>📍</span> {farm.location_name || 'Location Not Specified'}
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-950/80 border border-emerald-800/50 text-emerald-400 font-bold flex items-center justify-center text-sm shrink-0">
+                      🏡
+                    </div>
                   </div>
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-950/80 border border-emerald-800/50 text-emerald-400 font-bold flex items-center justify-center text-sm shrink-0">
-                    🏡
+
+                  {/* Manager & License details */}
+                  <div className="p-3.5 rounded-2xl bg-[#06140e] border border-[#133e2b] space-y-2 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Farm Manager:</span>
+                      <span className="font-semibold text-white">{farm.manager_name || 'Unassigned'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">License #:</span>
+                      <span className="font-mono text-slate-300">{farm.license_number || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Active Sheds:</span>
+                      <span className="font-semibold text-emerald-400">{farm.sheds_count || 3} Units</span>
+                    </div>
+                  </div>
+
+                  {/* Capacity Telemetry */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400 font-medium">Capacity Utilization</span>
+                      <span className="font-bold text-white">{farm.total_bird_count.toLocaleString()} / {farm.production_capacity_daily.toLocaleString()} Birds</span>
+                    </div>
+                    <div className="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          capacityUtilization > 90
+                            ? 'bg-amber-400'
+                            : 'bg-gradient-to-r from-emerald-600 to-emerald-400'
+                        }`}
+                        style={{ width: `${capacityUtilization || 85}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-right text-slate-400 font-mono">
+                      {capacityUtilization}% Occupied
+                    </div>
                   </div>
                 </div>
 
-                {/* Manager & License details */}
-                <div className="p-3.5 rounded-2xl bg-[#06140e] border border-[#133e2b] space-y-2 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Farm Manager:</span>
-                    <span className="font-semibold text-white">{farm.manager_name || 'Unassigned'}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">License #:</span>
-                    <span className="font-mono text-slate-300">{farm.license_number || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Active Sheds:</span>
-                    <span className="font-semibold text-emerald-400">{farm.sheds_count || 3} Units</span>
-                  </div>
-                </div>
-
-                {/* Capacity Telemetry */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400 font-medium">Capacity Utilization</span>
-                    <span className="font-bold text-white">{farm.total_bird_count.toLocaleString()} / {farm.production_capacity_daily.toLocaleString()} Birds</span>
-                  </div>
-                  <div className="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        capacityUtilization > 90
-                          ? 'bg-amber-400'
-                          : 'bg-gradient-to-r from-emerald-600 to-emerald-400'
-                      }`}
-                      style={{ width: `${capacityUtilization || 85}%` }}
-                    />
-                  </div>
-                  <div className="text-[10px] text-right text-slate-400 font-mono">
-                    {capacityUtilization}% Occupied
-                  </div>
+                {/* Action Buttons */}
+                <div className="pt-4 border-t border-[#133e2b] flex items-center justify-between gap-3">
+                  <Link
+                    href={`/dashboard/farms/${farm.id}`}
+                    className="flex-1 text-center py-2.5 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-all"
+                  >
+                    View Shed Telemetry →
+                  </Link>
+                  <Link
+                    href={`/dashboard/farms/${farm.id}/edit`}
+                    className="p-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-slate-300 hover:text-white transition-colors"
+                    title="Edit Farm Config"
+                  >
+                    ⚙️
+                  </Link>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="pt-4 border-t border-[#133e2b] flex items-center justify-between gap-3">
-                <Link
-                  href={`/dashboard/farms/${farm.id}`}
-                  className="flex-1 text-center py-2.5 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-all"
-                >
-                  View Shed Telemetry →
-                </Link>
-                <Link
-                  href={`/dashboard/farms/${farm.id}/edit`}
-                  className="p-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-slate-300 hover:text-white transition-colors"
-                  title="Edit Farm Config"
-                >
-                  ⚙️
-                </Link>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Add New Poultry Farm Modal */}
       {showAddModal && (

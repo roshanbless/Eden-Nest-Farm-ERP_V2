@@ -49,7 +49,7 @@ export interface SubscriptionBillingCycle {
   created_at: string;
 }
 
-// Fallback Mock Data Matched 100% to Eden Nest Subscription Cards
+// Subscription Plans (Matched 100% to Eden Nest Subscription Cards)
 export const mockPlans: SubscriptionPlan[] = [
   {
     id: 'plan-starter',
@@ -65,7 +65,7 @@ export const mockPlans: SubscriptionPlan[] = [
     features: ['Free delivery', 'Skip anytime', 'Freshness guarantee'],
     is_active: true,
     is_popular: false,
-    active_subscribers_count: 540,
+    active_subscribers_count: 0,
   },
   {
     id: 'plan-essentials',
@@ -81,7 +81,7 @@ export const mockPlans: SubscriptionPlan[] = [
     features: ['Free delivery', 'Pause anytime', 'Priority dispatch'],
     is_active: true,
     is_popular: true,
-    active_subscribers_count: 980,
+    active_subscribers_count: 0,
   },
   {
     id: 'plan-family',
@@ -97,7 +97,7 @@ export const mockPlans: SubscriptionPlan[] = [
     features: ['Free delivery', '5% savings', 'Premium support'],
     is_active: true,
     is_popular: false,
-    active_subscribers_count: 720,
+    active_subscribers_count: 0,
   },
   {
     id: 'plan-premium',
@@ -113,7 +113,7 @@ export const mockPlans: SubscriptionPlan[] = [
     features: ['Free delivery', '10% savings', 'Dedicated farmer contact'],
     is_active: true,
     is_popular: false,
-    active_subscribers_count: 410,
+    active_subscribers_count: 0,
   },
   {
     id: 'plan-cafe',
@@ -129,7 +129,7 @@ export const mockPlans: SubscriptionPlan[] = [
     features: ['Daily fresh delivery', 'Invoiced billing', 'Account manager'],
     is_active: true,
     is_popular: false,
-    active_subscribers_count: 185,
+    active_subscribers_count: 0,
   },
   {
     id: 'plan-hotel',
@@ -145,85 +145,12 @@ export const mockPlans: SubscriptionPlan[] = [
     features: ['Scheduled drops', 'Branded packaging', 'Account manager'],
     is_active: true,
     is_popular: false,
-    active_subscribers_count: 95,
+    active_subscribers_count: 0,
   },
 ];
 
-export const mockSubscriptions: Subscription[] = [
-  {
-    id: 'sub-301',
-    subscription_number: 'SUB-2026-8801',
-    customer_id: 'cust-101',
-    customer_name: 'Ananya Deshmukh',
-    customer_phone: '+91 98765 44321',
-    customer_email: 'ananya@gmail.com',
-    plan_name: 'Eden Essentials (60 eggs)',
-    amount: 570,
-    frequency: 'biweekly',
-    start_date: '2026-05-10',
-    next_billing_date: '2026-07-30',
-    status: 'active',
-    auto_renew: true,
-    renewal_count: 11,
-    delivery_address: 'Flat 402, Green Glen Layout, Bellandur, Bengaluru 560103',
-    created_at: '2026-05-10T10:00:00Z',
-  },
-  {
-    id: 'sub-302',
-    subscription_number: 'SUB-2026-8802',
-    customer_id: 'cust-102',
-    customer_name: 'Vikram Mehta',
-    customer_phone: '+91 98765 11223',
-    customer_email: 'vikram@mehta.org',
-    plan_name: 'Eden Starter (30 eggs)',
-    amount: 285,
-    frequency: 'weekly',
-    start_date: '2026-06-01',
-    next_billing_date: '2026-08-01',
-    status: 'active',
-    auto_renew: true,
-    renewal_count: 8,
-    delivery_address: 'Indiranagar 100ft Road, Bengaluru 560038',
-    created_at: '2026-06-01T09:30:00Z',
-  },
-  {
-    id: 'sub-303',
-    subscription_number: 'SUB-2026-8803',
-    customer_id: 'cust-103',
-    customer_name: 'Pooja Hegde',
-    customer_phone: '+91 98765 77654',
-    customer_email: 'pooja@hegde.com',
-    plan_name: 'Eden Premium (120 +12 eggs)',
-    amount: 1400,
-    frequency: 'monthly',
-    start_date: '2026-06-15',
-    next_billing_date: '2026-07-29',
-    status: 'paused',
-    pause_reason: 'Vacation Hold until August 5th',
-    auto_renew: false,
-    renewal_count: 4,
-    delivery_address: 'Koramangala 4th Block, Bengaluru 560034',
-    created_at: '2026-06-15T14:20:00Z',
-  },
-  {
-    id: 'sub-304',
-    subscription_number: 'SUB-2026-8804',
-    customer_id: 'cust-104',
-    customer_name: 'Grand Plaza Hotel',
-    customer_phone: '+91 98765 99000',
-    customer_email: 'procurement@grandplaza.com',
-    plan_name: 'Hotel (Bulk supply)',
-    amount: 3200,
-    frequency: 'weekly',
-    start_date: '2026-04-01',
-    next_billing_date: '2026-08-01',
-    status: 'active',
-    auto_renew: true,
-    renewal_count: 14,
-    delivery_address: 'MG Road Hotel Campus, Bengaluru 560001',
-    created_at: '2026-04-01T11:15:00Z',
-  },
-];
+// Clean Empty Default Subscriptions Array (No Demo Data)
+export const mockSubscriptions: Subscription[] = [];
 
 export async function fetchSubscriptionPlans(): Promise<SubscriptionPlan[]> {
   try {
@@ -267,34 +194,17 @@ export async function fetchSubscriptions(): Promise<Subscription[]> {
       return combined;
     }
 
-    if (localSaved.length > 0) {
-      const combined = [...localSaved];
-      for (const ms of mockSubscriptions) {
-        if (!combined.some((s) => s.subscription_number === ms.subscription_number || s.id === ms.id)) {
-          combined.push(ms);
-        }
-      }
-      return combined;
-    }
-
-    return mockSubscriptions;
+    return localSaved;
   } catch (err) {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('eden_subscriptions');
       if (stored) {
         try {
-          const localSaved: Subscription[] = JSON.parse(stored);
-          const combined = [...localSaved];
-          for (const ms of mockSubscriptions) {
-            if (!combined.some((s) => s.subscription_number === ms.subscription_number || s.id === ms.id)) {
-              combined.push(ms);
-            }
-          }
-          return combined;
+          return JSON.parse(stored) as Subscription[];
         } catch {}
       }
     }
-    return mockSubscriptions;
+    return [];
   }
 }
 
