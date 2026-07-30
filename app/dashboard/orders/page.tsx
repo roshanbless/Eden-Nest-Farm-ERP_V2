@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { fetchOrders, Order, mockOrders, mockProducts, Product } from '@/lib/api/commerce';
+import { fetchOrders, saveOrderToSupabase, Order, mockProducts, Product } from '@/lib/api/commerce';
+import { useLanguage } from '@/lib/i18n/languageContext';
 
 interface ChannelPricing {
   id: string;
@@ -19,8 +20,9 @@ const salesChannels: ChannelPricing[] = [
 ];
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
-  const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingOrderPrice, setEditingOrderPrice] = useState<Order | null>(null);
@@ -62,59 +64,39 @@ export default function OrdersPage() {
     setSelectedProductId(productId);
 
     const channel = salesChannels.find((c) => c.id === channelId) || salesChannels[0];
-    const channelEggRate = marketBaseEggPrice * channel.multiplier; // e.g. 8.40 for D2C
+    const prod = mockProducts.find((p) => p.id === productId) || mockProducts[0];
+    const ratePerEgg = marketBaseEggPrice * channel.multiplier;
 
+    let computedPrice = ratePerEgg;
     if (mode === 'single') {
-      setEditableUnitPrice(channelEggRate.toFixed(2));
-    } else {
-      let eggCount = 6;
-      if (productId === 'prod-00') eggCount = 6;
-      if (productId === 'prod-02') eggCount = 12;
-      if (productId === 'prod-01') eggCount = 30;
-      if (productId === 'prod-03') eggCount = 210;
-
-      const packPrice = (eggCount * channelEggRate).toFixed(2);
-      setEditableUnitPrice(packPrice);
+      computedPrice = ratePerEgg;
+    } else if (mode === 'pack') {
+      let eggsInPack = 6;
+      if (prod.sku === 'EGGS-PACK-12') eggsInPack = 12;
+      if (prod.sku === 'EGGS-PACK-30') eggsInPack = 30;
+      if (prod.sku === 'EGGS-CARTON-210') eggsInPack = 210;
+      computedPrice = ratePerEgg * eggsInPack;
+    } else if (mode === 'bulk') {
+      computedPrice = ratePerEgg * 210; // Wholesale Carton
     }
+
+    setEditableUnitPrice(computedPrice.toFixed(2));
   };
 
-  // Filter orders by tab
-  const filteredOrders = orders.filter((o) => {
-    if (activeTab === 'all') return true;
-    return o.order_status === activeTab;
-  });
-
-  // Calculate stats
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
-  const pendingCount = orders.filter((o) => o.order_status === 'pending').length;
-  const confirmedCount = orders.filter((o) => o.order_status === 'confirmed' || o.order_status === 'packed').length;
-  const inTransitCount = orders.filter((o) => o.order_status === 'out_for_delivery').length;
-
-  const advanceStatus = (orderId: string, currentStatus: string) => {
-    const statusSequence = ['pending', 'confirmed', 'packed', 'out_for_delivery', 'delivered'];
-    const nextIdx = statusSequence.indexOf(currentStatus) + 1;
-    if (nextIdx < statusSequence.length) {
-      const nextStatus = statusSequence[nextIdx] as any;
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, order_status: nextStatus } : o))
-      );
-    }
-  };
-
-  const handleCreateOrder = (e: React.FormEvent) => {
+  const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     const prod = mockProducts.find((p) => p.id === selectedProductId) || mockProducts[0];
     const ch = salesChannels.find((c) => c.id === selectedChannelId) || salesChannels[0];
+
+    const unitPriceNum = parseFloat(editableUnitPrice) || 8.0;
     const qtyNum = parseInt(quantity) || 1;
-    const unitPriceNum = parseFloat(editableUnitPrice) || 50.40;
-    const subtotalCalc = unitPriceNum * qtyNum;
     const shipNum = parseFloat(shippingCostInput) || 0;
     const discNum = parseFloat(discount) || 0;
+
+    const subtotalCalc = unitPriceNum * qtyNum;
     const totalCalc = Math.max(0, subtotalCalc + shipNum - discNum);
 
-    let modeLabel = 'Pack Trays';
-    if (packagingMode === 'single') modeLabel = 'Single Loose Eggs';
-    if (packagingMode === 'bulk') modeLabel = 'Bulk Commercial Load';
+    const modeLabel = packagingMode === 'single' ? 'Single Loose' : packagingMode === 'pack' ? 'Pack Tray' : 'Wholesale Bulk';
 
     const newOrder: Order = {
       id: `ord-${Date.now()}`,
@@ -148,6 +130,9 @@ export default function OrdersPage() {
 
     setOrders([newOrder, ...orders]);
     setShowCreateModal(false);
+
+    // Save to Dual Persistence (LocalStorage + Supabase DB)
+    await saveOrderToSupabase(newOrder);
   };
 
   const openPriceEditModal = (order: Order) => {
@@ -157,12 +142,14 @@ export default function OrdersPage() {
     setModDiscount(order.discount ? order.discount.toString() : '0');
   };
 
-  const handleSavePriceModification = (e: React.FormEvent) => {
+  const handleSavePriceModification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingOrderPrice) return;
 
     const newPrice = parseFloat(modUnitPrice) || 1;
     const newDisc = parseFloat(modDiscount) || 0;
+
+    let updatedTargetObj: Order | null = null;
 
     setOrders((prev) =>
       prev.map((o) => {
@@ -177,28 +164,34 @@ export default function OrdersPage() {
               : item
           );
 
-          return {
+          updatedTargetObj = {
             ...o,
-            subtotal,
+            subtotal: subtotal,
             discount: newDisc,
             total: newTotal,
             items: updatedItems,
           };
+          return updatedTargetObj;
         }
         return o;
       })
     );
 
     setEditingOrderPrice(null);
+
+    if (updatedTargetObj) {
+      await saveOrderToSupabase(updatedTargetObj);
+    }
   };
 
-  // Real-time calculations for modal
-  const currentQty = parseInt(quantity) || 1;
-  const currentUnitPrice = parseFloat(editableUnitPrice) || 0;
-  const currentSubtotal = currentQty * currentUnitPrice;
-  const currentShipping = parseFloat(shippingCostInput) || 0;
-  const currentDiscount = parseFloat(discount) || 0;
-  const currentTotal = Math.max(0, currentSubtotal + currentShipping - currentDiscount);
+  const filteredOrders = orders.filter((o) => {
+    if (activeTab === 'all') return true;
+    return o.order_status === activeTab;
+  });
+
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const pendingCount = orders.filter((o) => o.order_status === 'pending').length;
+  const deliveredCount = orders.filter((o) => o.order_status === 'delivered').length;
 
   return (
     <div className="space-y-8 pb-12">
@@ -206,25 +199,22 @@ export default function OrdersPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-2">
-            🛒 Channel Mix Sales Engine & NECC Price Control
+            🛒 B2B & D2C Sales Order Processing
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Order Management & Precise Pricing</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">{t.createOrder}</h1>
           <p className="text-xs text-slate-300 mt-1">
-            Create sales orders across 5 channels: <strong>Direct, Hotels/Bakeries, Institutional, Branded Retail & NECC Overflow</strong> with <strong>100% Precise Math</strong>.
+            Create and track orders with single, tray pack & bulk wholesale options with 100% editable unit prices.
           </p>
         </div>
 
         <button
-          onClick={() => {
-            updateCalculatedRate('ch-d2c', 'pack', 'prod-00');
-            setShowCreateModal(true);
-          }}
+          onClick={() => setShowCreateModal(true)}
           className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 text-white font-semibold text-xs shadow-lg shadow-emerald-950 flex items-center gap-2 self-start md:self-auto"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Create Sales Order
+          ➕ Create Sales Order
         </button>
       </div>
 
@@ -233,292 +223,194 @@ export default function OrdersPage() {
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-emerald-500/30 glass-card">
           <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Total Sales Revenue</div>
           <div className="text-3xl font-extrabold text-emerald-400 font-mono mt-1">₹{totalRevenue.toLocaleString()}</div>
-          <div className="text-xs text-emerald-400 font-semibold mt-1">Single, Pack & Bulk channel sales</div>
+          <div className="text-xs text-emerald-400 font-semibold mt-1">From {orders.length} total orders</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-amber-500/30 glass-card">
           <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Pending Confirmation</div>
-          <div className="text-3xl font-extrabold text-amber-400 font-mono mt-1">{pendingCount} Orders</div>
-          <div className="text-xs text-amber-400 font-semibold mt-1">Editable B2B pricing verification</div>
+          <div className="text-3xl font-extrabold text-amber-400 font-mono mt-1">{pendingCount}</div>
+          <div className="text-xs text-amber-400 font-semibold mt-1">Awaiting dispatch</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-blue-500/30 glass-card">
-          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">In Packing / Preparation</div>
-          <div className="text-3xl font-extrabold text-blue-400 font-mono mt-1">{confirmedCount} Orders</div>
-          <div className="text-xs text-blue-400 font-semibold mt-1">Cold storage batch allocation</div>
+          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Delivered Orders</div>
+          <div className="text-3xl font-extrabold text-blue-400 font-mono mt-1">{deliveredCount}</div>
+          <div className="text-xs text-blue-400 font-semibold mt-1">Completed doorstep & B2B drops</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-purple-500/30 glass-card">
-          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Out for Delivery</div>
-          <div className="text-3xl font-extrabold text-purple-400 font-mono mt-1">{inTransitCount} Shipments</div>
-          <div className="text-xs text-purple-400 font-semibold mt-1">Driver route dispatches</div>
+          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Base Egg Rate</div>
+          <div className="text-3xl font-extrabold text-purple-400 font-mono mt-1">₹{marketBaseEggPrice.toFixed(2)}</div>
+          <div className="text-xs text-purple-400 font-semibold mt-1">Editable NECC base rate per egg</div>
         </div>
       </div>
 
-      {/* Order Workflow Status Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#133e2b] text-xs font-semibold">
-        {[
-          { key: 'all', label: 'All Orders' },
-          { key: 'pending', label: '⏳ Pending' },
-          { key: 'confirmed', label: '✓ Confirmed' },
-          { key: 'packed', label: '📦 Packed' },
-          { key: 'out_for_delivery', label: '🚚 Out for Delivery' },
-          { key: 'delivered', label: '✅ Delivered' },
-        ].map((tab) => (
+      {/* Fresh Clean State / Orders Table */}
+      {orders.length === 0 ? (
+        <div className="p-12 text-center rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-2xl">
+            🛒
+          </div>
+          <h3 className="text-xl font-bold text-white">No Sales Orders Created Yet</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            Demo sample orders have been cleared. Click below to create your first order with editable rates & live database sync!
+          </p>
           <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
-              activeTab === tab.key
-                ? 'bg-emerald-600 text-white border border-emerald-400/40 shadow-sm'
-                : 'text-slate-300 hover:text-white bg-[#06140e] border border-[#133e2b]'
-            }`}
+            onClick={() => setShowCreateModal(true)}
+            className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg inline-flex items-center gap-2"
           >
-            {tab.label}
+            <span>➕ Create Your First Sales Order</span>
           </button>
-        ))}
-      </div>
-
-      {/* Orders Table */}
-      <div className="p-6 rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-5 glass-card">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-[#133e2b] text-slate-300 font-bold uppercase tracking-wider">
-                <th className="pb-3">ORDER #</th>
-                <th className="pb-3">CUSTOMER</th>
-                <th className="pb-3">ORDER TYPE</th>
-                <th className="pb-3">ITEMS / EDITABLE UNIT PRICE</th>
-                <th className="pb-3">TOTAL PRICE</th>
-                <th className="pb-3">PAYMENT</th>
-                <th className="pb-3">STATUS</th>
-                <th className="pb-3 text-right">ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#133e2b]/60">
-              {filteredOrders.map((order) => (
-                <tr key={order.id} className="hover:bg-[#133e2b]/40 transition-colors">
-                  <td className="py-4">
-                    <div className="font-extrabold text-white font-mono text-sm">{order.order_number}</div>
-                    <div className="text-[10px] text-slate-400 font-mono">Date: {order.scheduled_delivery_date}</div>
-                  </td>
-                  <td>
-                    <div className="font-bold text-white text-sm">{order.customer_name}</div>
-                    <div className="text-[10px] text-slate-400 truncate max-w-[180px]">{order.delivery_address}</div>
-                  </td>
-                  <td>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#06140e] border border-slate-700 text-slate-300 font-semibold uppercase">
-                      {order.order_type.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="text-slate-300">
-                    {order.items?.map((item) => (
-                      <div key={item.id} className="space-y-0.5">
-                        <div className="font-semibold text-white">{item.quantity}x {item.product_name}</div>
-                        <div className="text-[11px] text-emerald-400 font-mono">
-                          Unit Price: ₹{item.unit_price} / unit
-                        </div>
-                      </div>
-                    ))}
-                  </td>
-                  <td className="font-extrabold text-emerald-400 font-mono text-base">
-                    ₹{order.total.toLocaleString()}
-                  </td>
-                  <td>
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
-                      {order.payment_status.toUpperCase()}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                        order.order_status === 'pending'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : order.order_status === 'confirmed'
-                          ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                          : order.order_status === 'packed'
-                          ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                          : order.order_status === 'out_for_delivery'
-                          ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      }`}
-                    >
-                      {order.order_status.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openPriceEditModal(order)}
-                        className="px-2.5 py-1.5 rounded-xl font-semibold text-[11px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition-all flex items-center gap-1"
-                      >
-                        <span>✏️ Edit Price</span>
-                      </button>
-                      {order.order_status !== 'delivered' && (
-                        <button
-                          onClick={() => advanceStatus(order.id, order.order_status)}
-                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition-all shadow-md"
-                        >
-                          {order.order_status === 'pending'
-                            ? 'Confirm →'
-                            : order.order_status === 'confirmed'
-                            ? 'Pack →'
-                            : order.order_status === 'packed'
-                            ? 'Dispatch →'
-                            : 'Delivered ✓'}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
-      </div>
+      ) : (
+        <div className="p-6 rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-5 glass-card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-[#133e2b] text-slate-300 font-bold uppercase tracking-wider">
+                  <th className="pb-3">ORDER #</th>
+                  <th className="pb-3">CUSTOMER</th>
+                  <th className="pb-3">PRODUCTS & TIER</th>
+                  <th className="pb-3">SUBTOTAL</th>
+                  <th className="pb-3">NET TOTAL</th>
+                  <th className="pb-3">STATUS</th>
+                  <th className="pb-3 text-right">EDIT PRICE</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#133e2b]/60">
+                {filteredOrders.map((ord) => (
+                  <tr key={ord.id} className="hover:bg-[#133e2b]/40 transition-colors">
+                    <td className="py-4">
+                      <div className="font-extrabold text-white font-mono text-sm">{ord.order_number}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{ord.created_at.split('T')[0]}</div>
+                    </td>
+                    <td>
+                      <div className="font-bold text-white text-sm">{ord.customer_name}</div>
+                      <div className="text-[10px] text-slate-400 truncate max-w-[180px]">{ord.delivery_address}</div>
+                    </td>
+                    <td className="font-semibold text-emerald-300">
+                      {ord.items?.[0]?.product_name || 'Egg Order Pack'}
+                    </td>
+                    <td className="font-mono text-slate-300">₹{ord.subtotal.toLocaleString()}</td>
+                    <td className="font-extrabold text-amber-400 font-mono text-base">
+                      ₹{ord.total.toLocaleString()}
+                    </td>
+                    <td>
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        🟢 {ord.order_status}
+                      </span>
+                    </td>
+                    <td className="text-right">
+                      <button
+                        onClick={() => openPriceEditModal(ord)}
+                        className="px-3 py-1.5 rounded-xl bg-[#06140e] border border-amber-500/40 text-amber-300 font-bold text-[10px] hover:bg-amber-500/20 transition-all"
+                      >
+                        ✏️ Edit Price
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-      {/* Modal 1: Create Sales Order with Exact Math */}
+      {/* Modal: Create Sales Order */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#091b12] border border-[#133e2b] rounded-3xl p-6 space-y-4 shadow-2xl">
+          <div className="w-full max-w-lg bg-[#091b12] border border-[#133e2b] rounded-3xl p-6 space-y-5 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#133e2b] pb-3">
-              <h3 className="text-xl font-bold text-white">Create Sales Order</h3>
+              <h3 className="text-xl font-bold text-white">➕ Create New Sales Order</h3>
               <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateOrder} className="space-y-3.5 text-xs">
+            <form onSubmit={handleCreateOrder} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">Customer / Enterprise Name</label>
+                <label className="block font-semibold text-slate-300 mb-1">Customer / B2B Account Name</label>
                 <input
                   type="text"
                   required
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. Grand Plaza Hotel / Metro Mart"
+                  placeholder="e.g. Metro Fresh Mart"
                   className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
-              {/* SALES CHANNEL MIX SELECTOR */}
-              <div className="p-3 rounded-xl bg-[#06140e] border border-[#133e2b] space-y-1.5">
-                <label className="block text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-                  Target Sales Channel Tier
-                </label>
-                <select
-                  value={selectedChannelId}
-                  onChange={(e) => updateCalculatedRate(e.target.value, packagingMode, selectedProductId)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-amber-500/50 text-amber-300 font-bold text-xs"
-                >
-                  {salesChannels.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.multiplier >= 1 ? `+${Math.round((c.multiplier - 1) * 100)}%` : `${Math.round((c.multiplier - 1) * 100)}%`})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Packaging Mode Selector (Single, Pack, Bulk) */}
-              <div className="p-3 rounded-xl bg-[#06140e] border border-[#133e2b] space-y-2">
-                <label className="block text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
-                  Packaging Specification
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => updateCalculatedRate(selectedChannelId, 'single', selectedProductId)}
-                    className={`py-2 px-2 rounded-xl text-[11px] font-bold transition-all border ${
-                      packagingMode === 'single'
-                        ? 'bg-emerald-600 text-white border-emerald-400'
-                        : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
-                    }`}
-                  >
-                    🥚 Single Eggs
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateCalculatedRate(selectedChannelId, 'pack', selectedProductId)}
-                    className={`py-2 px-2 rounded-xl text-[11px] font-bold transition-all border ${
-                      packagingMode === 'pack'
-                        ? 'bg-emerald-600 text-white border-emerald-400'
-                        : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
-                    }`}
-                  >
-                    📦 Pack Trays
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateCalculatedRate(selectedChannelId, 'bulk', selectedProductId)}
-                    className={`py-2 px-2 rounded-xl text-[11px] font-bold transition-all border ${
-                      packagingMode === 'bulk'
-                        ? 'bg-emerald-600 text-white border-emerald-400'
-                        : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
-                    }`}
-                  >
-                    🚚 Bulk Wholesale
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Select Product SKU</label>
-                  <select
-                    value={selectedProductId}
-                    onChange={(e) => updateCalculatedRate(selectedChannelId, packagingMode, e.target.value)}
+                  <label className="block font-semibold text-slate-300 mb-1">Customer Phone</label>
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">Sales Channel Tier</label>
+                  <select
+                    value={selectedChannelId}
+                    onChange={(e) => updateCalculatedRate(e.target.value, packagingMode, selectedProductId)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-emerald-300 font-semibold"
                   >
-                    {mockProducts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
+                    {salesChannels.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
                       </option>
                     ))}
                   </select>
                 </div>
+              </div>
 
-                {/* EDITABLE UNIT PRICE FIELD */}
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">{t.packagingSpec}</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { key: 'single', label: `🥚 ${t.singleEggs}` },
+                    { key: 'pack', label: `📦 ${t.packTrays}` },
+                    { key: 'bulk', label: `🚚 ${t.bulkWholesale}` },
+                  ].map((mode) => (
+                    <button
+                      key={mode.key}
+                      type="button"
+                      onClick={() => updateCalculatedRate(selectedChannelId, mode.key as any, selectedProductId)}
+                      className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
+                        packagingMode === mode.key
+                          ? 'bg-emerald-600 text-white border-emerald-400 shadow-md'
+                          : 'bg-[#06140e] text-slate-300 border-[#133e2b]'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-amber-300 mb-1">
-                    Editable Unit Price (₹) ✏️
-                  </label>
+                  <label className="block font-semibold text-slate-300 mb-1">{t.editableUnitPrice}</label>
                   <input
                     type="number"
                     step="0.01"
                     required
                     value={editableUnitPrice}
                     onChange={(e) => setEditableUnitPrice(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-amber-500/60 text-amber-300 font-mono font-extrabold text-sm focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-amber-500/50 text-amber-300 font-extrabold font-mono text-sm"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Quantity</label>
+                  <label className="block font-semibold text-slate-300 mb-1">{t.orderQuantity}</label>
                   <input
                     type="number"
+                    required
+                    min="1"
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Shipping (₹)</label>
-                  <input
-                    type="number"
-                    value={shippingCostInput}
-                    onChange={(e) => setShippingCostInput(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Discount (₹)</label>
-                  <input
-                    type="number"
-                    value={discount}
-                    onChange={(e) => setDiscount(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-emerald-300 font-mono"
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-mono"
                   />
                 </div>
               </div>
@@ -530,49 +422,23 @@ export default function OrdersPage() {
                   required
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-white"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white"
                 />
               </div>
 
-              {/* Precise Real-Time Price Calculation Breakdown Banner */}
-              <div className="p-3.5 rounded-xl bg-[#06140e] border border-emerald-500/40 space-y-1.5">
-                <div className="flex items-center justify-between text-slate-300 font-mono text-[11px]">
-                  <span>Subtotal ({currentQty} × ₹{currentUnitPrice.toFixed(2)}):</span>
-                  <span>₹{currentSubtotal.toFixed(2)}</span>
-                </div>
-                {currentShipping > 0 && (
-                  <div className="flex items-center justify-between text-slate-400 font-mono text-[11px]">
-                    <span>Shipping Charge:</span>
-                    <span>+ ₹{currentShipping.toFixed(2)}</span>
-                  </div>
-                )}
-                {currentDiscount > 0 && (
-                  <div className="flex items-center justify-between text-emerald-400 font-mono text-[11px]">
-                    <span>Discount Applied:</span>
-                    <span>- ₹{currentDiscount.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="pt-1 border-t border-[#133e2b] flex items-center justify-between font-bold">
-                  <span className="text-white text-xs">Calculated Net Total:</span>
-                  <span className="text-amber-400 font-mono font-extrabold text-base">
-                    ₹{currentTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-[#133e2b] flex justify-end gap-3">
+              <div className="pt-3 border-t border-[#133e2b] flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
+                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg"
                 >
-                  Create & Confirm Order
+                  Save & Confirm Order
                 </button>
               </div>
             </form>
@@ -580,69 +446,53 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Modal 2: Edit Price on Existing Order */}
+      {/* Modal: Edit Existing Order Price */}
       {editingOrderPrice && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#091b12] border border-[#133e2b] rounded-3xl p-6 space-y-5 shadow-2xl">
+          <div className="w-full max-w-md bg-[#091b12] border border-[#133e2b] rounded-3xl p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#133e2b] pb-3">
-              <div>
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">NEGOTIATE / EDIT ORDER PRICING</span>
-                <h3 className="text-lg font-bold text-white">Edit Price for {editingOrderPrice.order_number}</h3>
-              </div>
+              <h3 className="text-lg font-bold text-white">✏️ Edit Order Unit Price</h3>
               <button onClick={() => setEditingOrderPrice(null)} className="text-slate-400 hover:text-white text-lg font-bold">
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleSavePriceModification} className="space-y-4 text-xs">
-              <div className="p-3 rounded-xl bg-[#06140e] border border-[#133e2b] space-y-1">
-                <div className="font-bold text-white">{editingOrderPrice.customer_name}</div>
-                <div className="text-slate-400 text-[11px]">{editingOrderPrice.items?.[0]?.product_name} (Qty: {editingOrderPrice.items?.[0]?.quantity})</div>
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">New Unit Price (₹)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={modUnitPrice}
+                  onChange={(e) => setModUnitPrice(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-amber-500/50 text-amber-300 font-extrabold font-mono text-base"
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-amber-300 mb-1">New Unit Price (₹)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={modUnitPrice}
-                    onChange={(e) => setModUnitPrice(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-amber-500/60 text-amber-300 font-mono font-extrabold text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Discount Amount (₹)</label>
-                  <input
-                    type="number"
-                    value={modDiscount}
-                    onChange={(e) => setModDiscount(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-emerald-300 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-[#06140e] border border-[#133e2b] flex items-center justify-between">
-                <span className="text-slate-400">Updated Order Total:</span>
-                <span className="text-amber-400 font-extrabold font-mono text-base">
-                  ₹{Math.max(0, (parseFloat(modUnitPrice || '0') * (editingOrderPrice.items?.[0]?.quantity || 1)) + (editingOrderPrice.shipping_cost || 0) - (parseFloat(modDiscount) || 0)).toLocaleString()}
-                </span>
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">Order Discount (₹)</label>
+                <input
+                  type="number"
+                  value={modDiscount}
+                  onChange={(e) => setModDiscount(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-mono"
+                />
               </div>
 
               <div className="pt-3 border-t border-[#133e2b] flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setEditingOrderPrice(null)}
-                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white"
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-lg"
+                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold shadow-lg"
                 >
-                  Save New Order Price
+                  Save New Price
                 </button>
               </div>
             </form>

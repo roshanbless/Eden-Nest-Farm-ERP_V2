@@ -1,18 +1,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { fetchProductionLogs, ProductionLog, mockProductionLogs } from '@/lib/api/production';
+import { fetchProductionLogs, saveProductionLogToSupabase, ProductionLog } from '@/lib/api/production';
+import { useLanguage } from '@/lib/i18n/languageContext';
 
 export default function ProductionPage() {
-  const [logs, setLogs] = useState<ProductionLog[]>(mockProductionLogs);
-  const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
+  const [logs, setLogs] = useState<ProductionLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showLogModal, setShowLogModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedShiftFilter, setSelectedShiftFilter] = useState<string>('All');
 
   // Form State for New Log
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [shedName, setShedName] = useState('Shed A - Hy-Line Layer');
+  const [shedName, setShedName] = useState('Shed A - Layer Site');
   const [collectionTime, setCollectionTime] = useState<ProductionLog['collection_time']>('Morning');
   const [birdCount, setBirdCount] = useState('14200');
   const [feedConsumed, setFeedConsumed] = useState('780');
@@ -48,13 +50,13 @@ export default function ProductionPage() {
   const eggMassKg = totalEggsCalc * 0.06;
   const fcrCalc = eggMassKg > 0 ? (feedKg / eggMassKg).toFixed(2) : '1.64';
 
-  const handleAddLog = (e: React.FormEvent) => {
+  const handleAddLog = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const newLog: ProductionLog = {
       id: `prod-${Date.now()}`,
       farm_id: 'farm-1',
-      farm_name: 'Eden Nest Central Farm',
+      farm_name: 'Eden Nest Layer Farm',
       shed_name: shedName,
       date: date,
       collection_time: collectionTime,
@@ -68,32 +70,30 @@ export default function ProductionPage() {
       grade_b: calcGradeB,
       grade_c: calcGradeC,
       production_percentage: yieldPctCalc,
-      quality_score: calcGradeA > 5000 ? 9.7 : 9.3,
-      notes: notes || `${collectionTime} collection round recorded.`,
-      recorded_by_name: 'Roshan Alexander (Owner)',
+      quality_score: 9.6,
+      notes: notes || `${collectionTime} collection round.`,
+      recorded_by_name: 'Farm Manager',
       created_at: new Date().toISOString(),
     };
 
     setLogs([newLog, ...logs]);
     setShowLogModal(false);
-    setNotes('');
+
+    // Save to Dual Persistence (LocalStorage + Supabase DB)
+    await saveProductionLogToSupabase(newLog);
   };
 
-  // Aggregated Shift Totals for Collection Times
-  const morningTotal = logs.filter(l => l.collection_time === 'Morning').reduce((sum, l) => sum + l.eggs_produced, 0);
-  const afternoonTotal = logs.filter(l => l.collection_time === 'Afternoon').reduce((sum, l) => sum + l.eggs_produced, 0);
-  const eveningTotal = logs.filter(l => l.collection_time === 'Evening').reduce((sum, l) => sum + l.eggs_produced, 0);
-  const grandTotalOutput = logs.reduce((sum, l) => sum + l.eggs_produced, 0);
-
-  const filteredLogs = logs.filter((l) => {
-    const matchesShift = selectedShiftFilter === 'All' || l.collection_time === selectedShiftFilter;
+  const filteredLogs = logs.filter((log) => {
     const matchesSearch =
-      l.shed_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.date.includes(searchQuery) ||
-      l.collection_time?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.notes?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesShift && matchesSearch;
+      (log.shed_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (log.notes || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesShift =
+      selectedShiftFilter === 'All' || log.collection_time === selectedShiftFilter;
+    return matchesSearch && matchesShift;
   });
+
+  const totalEggsLogged = logs.reduce((sum, l) => sum + (l.eggs_produced || 0), 0);
+  const avgYield = logs.length > 0 ? (logs.reduce((sum, l) => sum + (l.production_percentage || 0), 0) / logs.length).toFixed(1) : '0';
 
   return (
     <div className="space-y-8 pb-12">
@@ -101,11 +101,11 @@ export default function ProductionPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-2">
-            🥚 Shift-wise Daily Production & Flock Telemetry
+            📊 Egg Collection & Laying Performance Telemetry
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Daily Egg Collection & Production</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">{t.logProduction}</h1>
           <p className="text-xs text-slate-300 mt-1">
-            Log egg harvests by collection round (<strong>Morning, Afternoon, Evening</strong>), track laying yields, FCR ratios & defect grading.
+            Log morning, afternoon & evening egg yields, grade distributions, mortality, and feed conversion ratios.
           </p>
         </div>
 
@@ -116,165 +116,107 @@ export default function ProductionPage() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Log Egg Collection Shift
+          ➕ Log Egg Collection
         </button>
       </div>
 
-      {/* Collection Shift Telemetry Cards */}
+      {/* Aggregate Telemetry Header */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Morning Card */}
-        <div className="p-5 rounded-2xl bg-[#0a2017] border border-amber-500/30 space-y-2 glass-card">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-wider">
-            <span>🌅 Morning Collection</span>
-            <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-300 text-xs">07:00 AM</span>
-          </div>
-          <div className="text-3xl font-extrabold text-white font-mono">{morningTotal.toLocaleString()} <span className="text-xs font-normal text-amber-300">eggs</span></div>
-          <div className="text-xs text-amber-400 font-semibold">Peak primary laying shift</div>
+        <div className="p-5 rounded-2xl bg-[#0a2017] border border-emerald-500/30 glass-card">
+          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Total Eggs Logged</div>
+          <div className="text-3xl font-extrabold text-white font-mono mt-1">{totalEggsLogged.toLocaleString()}</div>
+          <div className="text-xs text-emerald-400 font-semibold mt-1">From {logs.length} collection logs</div>
         </div>
 
-        {/* Afternoon Card */}
-        <div className="p-5 rounded-2xl bg-[#0a2017] border border-emerald-500/30 space-y-2 glass-card">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-wider">
-            <span>☀️ Afternoon Collection</span>
-            <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs">01:30 PM</span>
-          </div>
-          <div className="text-3xl font-extrabold text-white font-mono">{afternoonTotal.toLocaleString()} <span className="text-xs font-normal text-emerald-300">eggs</span></div>
-          <div className="text-xs text-emerald-400 font-semibold">Mid-day shed round</div>
+        <div className="p-5 rounded-2xl bg-[#0a2017] border border-amber-500/30 glass-card">
+          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Average Laying Yield</div>
+          <div className="text-3xl font-extrabold text-amber-400 font-mono mt-1">{avgYield}%</div>
+          <div className="text-xs text-amber-400 font-semibold mt-1">Flock laying efficiency</div>
         </div>
 
-        {/* Evening Card */}
-        <div className="p-5 rounded-2xl bg-[#0a2017] border border-blue-500/30 space-y-2 glass-card">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-wider">
-            <span>🌙 Evening Collection</span>
-            <span className="p-1.5 rounded-lg bg-blue-500/20 text-blue-300 text-xs">05:45 PM</span>
-          </div>
-          <div className="text-3xl font-extrabold text-white font-mono">{eveningTotal.toLocaleString()} <span className="text-xs font-normal text-blue-300">eggs</span></div>
-          <div className="text-xs text-blue-400 font-semibold">Final evening harvest</div>
+        <div className="p-5 rounded-2xl bg-[#0a2017] border border-blue-500/30 glass-card">
+          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Feed Conversion (FCR)</div>
+          <div className="text-3xl font-extrabold text-blue-400 font-mono mt-1">1.64</div>
+          <div className="text-xs text-blue-400 font-semibold mt-1">kg feed per kg egg mass</div>
         </div>
 
-        {/* Total Output Card */}
-        <div className="p-5 rounded-2xl bg-[#0a2017] border border-purple-500/30 space-y-2 glass-card">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-wider">
-            <span>Combined Total Output</span>
-            <span className="p-1.5 rounded-lg bg-purple-500/20 text-purple-300 text-xs">All Shifts</span>
-          </div>
-          <div className="text-3xl font-extrabold text-white font-mono">{grandTotalOutput.toLocaleString()} <span className="text-xs font-normal text-purple-300">eggs</span></div>
-          <div className="text-xs text-emerald-400 font-semibold">90.2% Avg Laying Rate</div>
+        <div className="p-5 rounded-2xl bg-[#0a2017] border border-purple-500/30 glass-card">
+          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Grade A Yield %</div>
+          <div className="text-3xl font-extrabold text-purple-400 font-mono mt-1">96.2%</div>
+          <div className="text-xs text-purple-400 font-semibold mt-1">First-grade organic eggs</div>
         </div>
       </div>
 
-      {/* Filter Bar & Search */}
-      <div className="p-4 rounded-2xl bg-[#0a2017] border border-emerald-500/20 flex flex-col md:flex-row items-center justify-between gap-4 glass-card">
-        {/* Collection Shift Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
-          {['All', 'Morning', 'Afternoon', 'Evening'].map((shift) => (
-            <button
-              key={shift}
-              onClick={() => setSelectedShiftFilter(shift)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all ${
-                selectedShiftFilter === shift
-                  ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white border border-emerald-400/40 shadow-sm'
-                  : 'bg-[#06140e] text-slate-300 border border-[#133e2b] hover:text-white'
-              }`}
-            >
-              {shift === 'All' ? '🌐 All Shifts' : shift === 'Morning' ? '🌅 Morning Shift' : shift === 'Afternoon' ? '☀️ Afternoon Shift' : '🌙 Evening Shift'}
-            </button>
-          ))}
-        </div>
-
-        {/* Search input */}
-        <div className="relative w-full md:w-72">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search shed, date, notes..."
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-          <svg
-            className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+      {/* Fresh Clean State / Production Logs Table */}
+      {logs.length === 0 ? (
+        <div className="p-12 text-center rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-2xl">
+            🥚
+          </div>
+          <h3 className="text-xl font-bold text-white">No Egg Collection Logs Yet</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            Demo sample logs cleared. Log your first egg collection round to start fresh with real live sync!
+          </p>
+          <button
+            onClick={() => setShowLogModal(true)}
+            className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg inline-flex items-center gap-2"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+            <span>➕ Log First Egg Collection</span>
+          </button>
         </div>
-      </div>
-
-      {/* Production Log Directory Table */}
-      <div className="p-6 rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-5 glass-card">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-white">Daily Production & Shift Collection Audit Logs</h3>
-          <span className="text-xs text-slate-400">{filteredLogs.length} Collection Entries</span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-[#133e2b] text-slate-300 font-bold uppercase tracking-wider">
-                <th className="pb-3">DATE / SHED</th>
-                <th className="pb-3">COLLECTION TIME</th>
-                <th className="pb-3">FLOCK SIZE</th>
-                <th className="pb-3">FEED CONSUMED</th>
-                <th className="pb-3">TOTAL EGGS</th>
-                <th className="pb-3">GRADE A / B / C</th>
-                <th className="pb-3">YIELD %</th>
-                <th className="pb-3 text-right">LOGGED BY</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#133e2b]/60">
-              {filteredLogs.map((l) => (
-                <tr key={l.id} className="hover:bg-[#133e2b]/40 transition-colors">
-                  <td className="py-4">
-                    <div className="font-bold text-white text-sm font-mono">{l.date}</div>
-                    <div className="text-[10px] text-amber-400 font-medium">{l.shed_name}</div>
-                  </td>
-                  <td>
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                        l.collection_time === 'Morning'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                          : l.collection_time === 'Afternoon'
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                          : l.collection_time === 'Evening'
-                          ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                          : 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                      }`}
-                    >
-                      {l.collection_time === 'Morning' && '🌅 Morning'}
-                      {l.collection_time === 'Afternoon' && '☀️ Afternoon'}
-                      {l.collection_time === 'Evening' && '🌙 Evening'}
-                      {l.collection_time === 'Full Day (Combined)' && '📊 Full Day'}
-                    </span>
-                  </td>
-                  <td className="text-slate-300 font-mono">{l.bird_count.toLocaleString()} birds</td>
-                  <td className="text-amber-300 font-mono font-semibold">{l.feed_consumed_kg} kg</td>
-                  <td className="text-white font-bold font-mono text-sm">{l.eggs_produced.toLocaleString()} eggs</td>
-                  <td>
-                    <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                      <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">A: {l.grade_a}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/30">B: {l.grade_b}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-red-950 text-red-300 border border-red-500/30">C: {l.grade_c}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <span className="font-bold text-emerald-400 font-mono text-sm">{l.production_percentage}%</span>
-                  </td>
-                  <td className="text-right text-slate-300 font-medium">{l.recorded_by_name}</td>
+      ) : (
+        <div className="p-6 rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-5 glass-card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-[#133e2b] text-slate-300 font-bold uppercase tracking-wider">
+                  <th className="pb-3">DATE & SHIFT</th>
+                  <th className="pb-3">SHED LOCATION</th>
+                  <th className="pb-3">FLOCK & FEED</th>
+                  <th className="pb-3">TOTAL EGGS</th>
+                  <th className="pb-3">GRADE A</th>
+                  <th className="pb-3">LAYING YIELD</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-[#133e2b]/60">
+                {filteredLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-[#133e2b]/40 transition-colors">
+                    <td className="py-4">
+                      <div className="font-extrabold text-white font-mono text-sm">{log.date}</div>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 font-bold border border-emerald-500/20">
+                        {log.collection_time} Shift
+                      </span>
+                    </td>
+                    <td className="font-semibold text-emerald-300">{log.shed_name}</td>
+                    <td>
+                      <div className="font-bold text-white">{log.bird_count.toLocaleString()} Birds</div>
+                      <div className="text-[10px] text-slate-400">{log.feed_consumed_kg} kg feed</div>
+                    </td>
+                    <td className="font-extrabold text-amber-400 font-mono text-base">
+                      {log.eggs_produced.toLocaleString()} Eggs
+                    </td>
+                    <td className="font-mono text-emerald-300 font-bold">
+                      {log.grade_a.toLocaleString()}
+                    </td>
+                    <td>
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        {log.production_percentage}% Yield
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Modal: Log Egg Collection Shift */}
+      {/* Modal: Log Egg Collection */}
       {showLogModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-[#091b12] border border-[#133e2b] rounded-3xl p-6 space-y-5 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#133e2b] pb-3">
-              <h3 className="text-lg font-bold text-white">🥚 Log Shift Egg Collection & Telemetry</h3>
+              <h3 className="text-xl font-bold text-white">➕ Log Daily Egg Production Batch</h3>
               <button onClick={() => setShowLogModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">
                 ✕
               </button>
@@ -289,125 +231,59 @@ export default function ProductionPage() {
                     required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-mono"
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white"
                   />
                 </div>
-
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Collection Time Shift</label>
+                  <label className="block font-semibold text-slate-300 mb-1">Shift / Round</label>
                   <select
                     value={collectionTime}
-                    onChange={(e: any) => setCollectionTime(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-semibold text-amber-300 focus:ring-2 focus:ring-emerald-500"
+                    onChange={(e) => setCollectionTime(e.target.value as any)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-emerald-300 font-semibold"
                   >
-                    <option value="Morning">🌅 Morning Collection (06:00 - 09:00 AM)</option>
-                    <option value="Afternoon">☀️ Afternoon Collection (12:00 - 02:30 PM)</option>
-                    <option value="Evening">🌙 Evening Collection (04:30 - 06:30 PM)</option>
-                    <option value="Full Day (Combined)">📊 Full Day Combined Round</option>
+                    <option value="Morning">Morning</option>
+                    <option value="Afternoon">Afternoon</option>
+                    <option value="Evening">Evening</option>
+                    <option value="Full Day (Combined)">Full Day (Combined)</option>
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">Select Layer Shed</label>
-                <select
-                  value={shedName}
-                  onChange={(e) => setShedName(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white"
-                >
-                  <option value="Shed A - Hy-Line Layer">Shed A - Hy-Line Layer (14,200 birds)</option>
-                  <option value="Shed B - Lohmann Brown">Shed B - Lohmann Brown (18,500 birds)</option>
-                  <option value="Shed C - Bovans Brown">Shed C - Bovans Brown (15,800 birds)</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Bird Count</label>
+                  <label className="block font-semibold text-slate-300 mb-1">Grade A (Good Large Eggs)</label>
                   <input
                     type="number"
-                    value={birdCount}
-                    onChange={(e) => setBirdCount(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-xs"
+                    required
+                    value={gradeA}
+                    onChange={(e) => setGradeA(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-emerald-500/50 text-emerald-300 font-extrabold font-mono text-base"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Feed Consumed (kg)</label>
+                  <label className="block font-semibold text-slate-300 mb-1">Grade B / C / Broken Eggs</label>
                   <input
                     type="number"
-                    value={feedConsumed}
-                    onChange={(e) => setFeedConsumed(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-xs"
+                    value={gradeB}
+                    onChange={(e) => setGradeB(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-amber-300 font-mono"
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Mortality Count</label>
-                  <input
-                    type="number"
-                    value={mortality}
-                    onChange={(e) => setMortality(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-xs text-red-300"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-[#06140e] border border-[#133e2b] space-y-2">
-                <div className="text-xs font-bold text-emerald-400 uppercase">Egg Grade Breakdown ({totalEggsCalc.toLocaleString()} Eggs)</div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-[10px] text-emerald-300 mb-1">Grade A (Premium)</label>
-                    <input
-                      type="number"
-                      value={gradeA}
-                      onChange={(e) => setGradeA(e.target.value)}
-                      className="w-full p-2 rounded-lg bg-slate-900 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-amber-300 mb-1">Grade B (Medium)</label>
-                    <input
-                      type="number"
-                      value={gradeB}
-                      onChange={(e) => setGradeB(e.target.value)}
-                      className="w-full p-2 rounded-lg bg-slate-900 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-red-300 mb-1">Grade C (Small)</label>
-                    <input
-                      type="number"
-                      value={gradeC}
-                      onChange={(e) => setGradeC(e.target.value)}
-                      className="w-full p-2 rounded-lg bg-slate-900 border border-red-500/40 text-red-300 font-mono text-xs font-bold"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">Shift Notes & Observations</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Morning round 1 complete. Temperature nominal."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white text-xs"
-                />
               </div>
 
               <div className="pt-3 border-t border-[#133e2b] flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowLogModal(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white font-semibold"
+                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-950"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg"
                 >
-                  Save Collection Shift Log
+                  Save Production Log
                 </button>
               </div>
             </form>

@@ -1,16 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { fetchInventory, fetchProducts, InventoryItem, Product, mockInventory, mockProducts } from '@/lib/api/commerce';
+import { fetchInventory, fetchProducts, InventoryItem, Product, mockProducts } from '@/lib/api/commerce';
+import { useLanguage } from '@/lib/i18n/languageContext';
 
 export default function InventoryPage() {
-  const [inventory, setInventory] = useState<InventoryItem[]>(mockInventory);
+  const { t } = useLanguage();
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>(mockProducts);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showAdjustModal, setShowAdjustModal] = useState(false);
 
   // Form State
-  const [selectedItem, setSelectedItem] = useState(mockInventory[0].id);
+  const [selectedItem, setSelectedItem] = useState<string>('');
   const [adjustType, setAdjustType] = useState<'stock_in' | 'stock_out' | 'waste' | 'damage'>('stock_in');
   const [quantity, setQuantity] = useState('100');
   const [reason, setReason] = useState('Production Batch Receiving');
@@ -21,6 +23,9 @@ export default function InventoryPage() {
       const invData = await fetchInventory();
       const prodData = await fetchProducts();
       setInventory(invData);
+      if (invData.length > 0) {
+        setSelectedItem(invData[0].id);
+      }
       setProducts(prodData);
       setLoading(false);
     }
@@ -53,6 +58,9 @@ export default function InventoryPage() {
     });
 
     setInventory(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('eden_inventory', JSON.stringify(updated));
+    }
     setShowAdjustModal(false);
   };
 
@@ -64,8 +72,8 @@ export default function InventoryPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-2">
             📦 Warehouse & Inventory Control
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Inventory & Stock Tracking</h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">{t.inventory}</h1>
+          <p className="text-xs text-slate-300 mt-1">
             Track batch-level egg inventory, warehouse rack allocations, reserved order stock, and damage adjustments.
           </p>
         </div>
@@ -83,28 +91,28 @@ export default function InventoryPage() {
 
       {/* Aggregate Telemetry Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 glass-card">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Stock Available</div>
-          <div className="text-3xl font-extrabold text-emerald-400 mt-1">{totalAvailable.toLocaleString()} <span className="text-xs text-slate-400 font-normal">units</span></div>
-          <div className="text-xs text-slate-500 mt-1">Ready for dispatch & order allocation</div>
+        <div className="p-5 rounded-2xl bg-[#0a2017] border border-emerald-500/30 glass-card">
+          <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Total Stock Available</div>
+          <div className="text-3xl font-extrabold text-emerald-400 mt-1 font-mono">{totalAvailable.toLocaleString()} <span className="text-xs text-slate-400 font-normal">units</span></div>
+          <div className="text-xs text-emerald-400 font-semibold mt-1">Ready for dispatch</div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 glass-card">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Reserved for Active Orders</div>
-          <div className="text-3xl font-extrabold text-blue-400 mt-1">{totalReserved.toLocaleString()} <span className="text-xs text-slate-400 font-normal">units</span></div>
-          <div className="text-xs text-slate-500 mt-1">Committed to confirmed sales orders</div>
+        <div className="p-5 rounded-2xl bg-[#0a2017] border border-blue-500/30 glass-card">
+          <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Reserved for Active Orders</div>
+          <div className="text-3xl font-extrabold text-blue-400 mt-1 font-mono">{totalReserved.toLocaleString()} <span className="text-xs text-slate-400 font-normal">units</span></div>
+          <div className="text-xs text-blue-400 font-semibold mt-1">Committed stock</div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 glass-card">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Damaged / Waste Logged</div>
-          <div className="text-3xl font-extrabold text-red-400 mt-1">{totalDamaged} <span className="text-xs text-slate-400 font-normal">units</span></div>
-          <div className="text-xs text-slate-500 mt-1">0.7% Inventory Breakage Ratio</div>
+        <div className="p-5 rounded-2xl bg-[#0a2017] border border-red-500/30 glass-card">
+          <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Damaged / Waste Logged</div>
+          <div className="text-3xl font-extrabold text-red-400 mt-1 font-mono">{totalDamaged} <span className="text-xs text-slate-400 font-normal">units</span></div>
+          <div className="text-xs text-red-400 font-semibold mt-1">Breakage log</div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 glass-card">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Warehouse Rack Locations</div>
-          <div className="text-3xl font-extrabold text-amber-400 mt-1">4 Cold Racks</div>
-          <div className="text-xs text-slate-500 mt-1">Chilled storage 14°C maintained</div>
+        <div className="p-5 rounded-2xl bg-[#0a2017] border border-amber-500/30 glass-card">
+          <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Warehouse Cold Storage</div>
+          <div className="text-3xl font-extrabold text-amber-400 mt-1 font-mono">14°C Nominal</div>
+          <div className="text-xs text-amber-400 font-semibold mt-1">Chilled storage</div>
         </div>
       </div>
 
@@ -117,7 +125,7 @@ export default function InventoryPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {products.map((prod) => (
-            <div key={prod.id} className="p-5 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4 glass-card-hover">
+            <div key={prod.id} className="p-5 rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-4 glass-card">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
@@ -128,9 +136,9 @@ export default function InventoryPage() {
                 <div className="text-xl font-extrabold text-amber-400 font-mono">₹{prod.base_price}</div>
               </div>
 
-              <p className="text-xs text-slate-400 line-clamp-2">{prod.description}</p>
+              <p className="text-xs text-slate-300 line-clamp-2">{prod.description}</p>
 
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="pt-3 border-t border-[#133e2b] flex items-center justify-between text-xs">
                 <span className="text-slate-400">Stock Level:</span>
                 <span className="font-bold text-white font-mono">{prod.stock_quantity.toLocaleString()} {prod.unit_of_measure}s</span>
               </div>
@@ -139,57 +147,60 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Warehouse Stock & Batch Items Table */}
-      <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-5 glass-card">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-white">Batch Stock Inventory & Racks</h3>
-            <p className="text-xs text-slate-400">Batch-level stock reservation, rack allocation, and recount status</p>
+      {/* Fresh Clean State / Inventory Batch Table */}
+      {inventory.length === 0 ? (
+        <div className="p-12 text-center rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-2xl">
+            📦
           </div>
-          <span className="text-xs text-slate-400">{inventory.length} Active Batches</span>
+          <h3 className="text-xl font-bold text-white">No Inventory Batches Logged Yet</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            Demo sample inventory cleared. Click below to adjust stock level and add batch inventory with real live sync!
+          </p>
+          <button
+            onClick={() => setShowAdjustModal(true)}
+            className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg inline-flex items-center gap-2"
+          >
+            <span>Perform First Stock Adjustment</span>
+          </button>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
-                <th className="pb-3">PRODUCT / BATCH</th>
-                <th className="pb-3">FARM SITE</th>
-                <th className="pb-3">WAREHOUSE RACK</th>
-                <th className="pb-3">AVAILABLE</th>
-                <th className="pb-3">RESERVED</th>
-                <th className="pb-3">DAMAGED</th>
-                <th className="pb-3 text-right">LAST COUNTED</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {inventory.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="py-3.5">
-                    <div className="font-bold text-white">{item.product_name}</div>
-                    <div className="text-[10px] font-mono text-emerald-400">{item.batch_number}</div>
-                  </td>
-                  <td className="text-slate-300 font-medium">{item.farm_name}</td>
-                  <td className="text-slate-300 font-mono">{item.warehouse_location}</td>
-                  <td className="font-extrabold text-emerald-400 font-mono">{item.quantity_available.toLocaleString()}</td>
-                  <td className="font-bold text-blue-400 font-mono">{item.quantity_reserved.toLocaleString()}</td>
-                  <td className="font-bold text-red-400 font-mono">{item.quantity_damaged}</td>
-                  <td className="text-right text-slate-400 font-mono">
-                    {new Date(item.last_counted).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </td>
+      ) : (
+        <div className="p-6 rounded-3xl bg-[#091b12] border border-[#133e2b] space-y-5 glass-card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-[#133e2b] text-slate-300 font-bold uppercase tracking-wider">
+                  <th className="pb-3">BATCH NUMBER</th>
+                  <th className="pb-3">PRODUCT</th>
+                  <th className="pb-3">FARM LOCATION</th>
+                  <th className="pb-3">AVAILABLE</th>
+                  <th className="pb-3">RESERVED</th>
+                  <th className="pb-3">LOCATION</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-[#133e2b]/60">
+                {inventory.map((item) => (
+                  <tr key={item.id} className="hover:bg-[#133e2b]/40 transition-colors">
+                    <td className="py-4 font-mono font-extrabold text-white text-sm">{item.batch_number}</td>
+                    <td className="font-semibold text-emerald-300">{item.product_name}</td>
+                    <td className="text-slate-300">{item.farm_name}</td>
+                    <td className="font-mono text-emerald-400 font-bold text-sm">{item.quantity_available.toLocaleString()}</td>
+                    <td className="font-mono text-blue-400">{item.quantity_reserved.toLocaleString()}</td>
+                    <td className="font-mono text-slate-300">{item.warehouse_location}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Stock Adjustment Modal */}
+      {/* Modal: Adjust Stock Level */}
       {showAdjustModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-xl font-bold text-white">Perform Stock Adjustment</h3>
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#091b12] border border-[#133e2b] rounded-3xl p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#133e2b] pb-3">
+              <h3 className="text-lg font-bold text-white">📦 Perform Stock Adjustment</h3>
               <button onClick={() => setShowAdjustModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">
                 ✕
               </button>
@@ -197,68 +208,56 @@ export default function InventoryPage() {
 
             <form onSubmit={handleAdjust} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">Select Batch / Inventory Item</label>
+                <label className="block font-semibold text-slate-300 mb-1">Select Inventory Batch</label>
                 <select
                   value={selectedItem}
                   onChange={(e) => setSelectedItem(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white"
                 >
-                  {inventory.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.batch_number} - {i.product_name} ({i.quantity_available} available)
+                  {inventory.map((inv) => (
+                    <option key={inv.id} value={inv.id}>
+                      {inv.batch_number} - {inv.product_name} ({inv.quantity_available} avail)
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Adjustment Type</label>
-                  <select
-                    value={adjustType}
-                    onChange={(e: any) => setAdjustType(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  >
-                    <option value="stock_in">Stock-In (+) Receiving</option>
-                    <option value="stock_out">Stock-Out (-) Dispatch</option>
-                    <option value="damage">Damage / Cracked Log</option>
-                    <option value="waste">Spill / Expiry Waste</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Quantity Change</label>
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">Adjustment Action</label>
+                <select
+                  value={adjustType}
+                  onChange={(e) => setAdjustType(e.target.value as any)}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-emerald-300 font-semibold"
+                >
+                  <option value="stock_in">➕ Receive Production Stock (Stock In)</option>
+                  <option value="stock_out">➖ Dispatch Order (Stock Out)</option>
+                  <option value="damage">⚠️ Log Damaged / Cracked Eggs</option>
+                  <option value="waste">🗑️ Log Waste / Expiry</option>
+                </select>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">Reason / Reference Notes</label>
-                <textarea
-                  rows={2}
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g. Production Batch Receiving or Transit Damage..."
-                  className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none text-xs"
+                <label className="block font-semibold text-slate-300 mb-1">Quantity</label>
+                <input
+                  type="number"
+                  required
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white font-mono text-base"
                 />
               </div>
 
-              <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+              <div className="pt-3 border-t border-[#133e2b] flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowAdjustModal(false)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-semibold"
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-950"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg"
                 >
                   Save Stock Adjustment
                 </button>

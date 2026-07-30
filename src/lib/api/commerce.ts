@@ -70,7 +70,7 @@ export interface Order {
   items?: OrderItem[];
 }
 
-// Fallback Mock Data
+// Standard Egg Product SKUs
 export const mockProducts: Product[] = [
   {
     id: 'prod-00',
@@ -118,194 +118,15 @@ export const mockProducts: Product[] = [
     base_price: 1680,
     weight_grams: 12600,
     is_active: true,
-    stock_quantity: 180,
-  },
-  {
-    id: 'prod-04',
-    name: 'Chilled Liquid Whole Egg (5 Litre)',
-    sku: 'EGG-LIQUID-5L',
-    description: 'Pasteurized liquid whole egg for bakery & industrial food processing.',
-    category: 'processed',
-    unit_of_measure: 'kg',
-    base_price: 650,
-    weight_grams: 5000,
-    is_active: true,
-    stock_quantity: 65,
-  },
-  {
-    id: 'prod-05',
-    name: 'Eden Bio-Compost 5 kg Retail Pouch',
-    sku: 'MN-RETAIL-5KG',
-    description: 'Aged Cured Hen Manure Organic Fertilizer in zip-lock retail pouch (5 Kg Pack).',
-    category: 'manure_organic',
-    unit_of_measure: 'bag_5kg',
-    base_price: 150,
-    weight_grams: 5000,
-    is_active: true,
-    stock_quantity: 640,
-  },
-  {
-    id: 'prod-06',
-    name: 'Eden Bio-Compost 10 kg Garden Bag',
-    sku: 'MN-RETAIL-10KG',
-    description: 'Nitrogen-rich organic poultry compost for home gardens & nurseries (10 Kg Pack).',
-    category: 'manure_organic',
-    unit_of_measure: 'bag_10kg',
-    base_price: 280,
-    weight_grams: 10000,
-    is_active: true,
-    stock_quantity: 420,
-  },
-  {
-    id: 'prod-07',
-    name: 'Eden Bio-Compost 50 kg Commercial Sack',
-    sku: 'MN-BULK-50KG',
-    description: 'Commercial grade cured poultry manure for tea, rubber & spice plantations (50 Kg Bag).',
-    category: 'manure_organic',
-    unit_of_measure: 'bag_50kg',
-    base_price: 350,
-    weight_grams: 50000,
-    is_active: true,
-    stock_quantity: 280,
+    stock_quantity: 450,
   },
 ];
 
-export const mockInventory: InventoryItem[] = [
-  {
-    id: 'inv-101',
-    farm_id: 'farm-1',
-    farm_name: 'Eden Nest Central Farm',
-    product_id: 'prod-01',
-    product_name: 'Fresh Farm Eggs (30-Egg Tray)',
-    batch_number: 'EN-BATCH-2026-0722-A',
-    quantity_available: 1420,
-    quantity_reserved: 340,
-    quantity_damaged: 12,
-    warehouse_location: 'Cold Storage Room #1 - Rack A-2',
-    last_counted: '2026-07-22T14:00:00Z',
-  },
-  {
-    id: 'inv-102',
-    farm_id: 'farm-1',
-    farm_name: 'Eden Nest Central Farm',
-    product_id: 'prod-02',
-    product_name: 'Premium Organic Dozen (12 Eggs)',
-    batch_number: 'EN-BATCH-2026-0722-B',
-    quantity_available: 850,
-    quantity_reserved: 210,
-    quantity_damaged: 5,
-    warehouse_location: 'Packaging Line #2 - Rack B-1',
-    last_counted: '2026-07-22T14:00:00Z',
-  },
-  {
-    id: 'inv-103',
-    farm_id: 'farm-2',
-    farm_name: 'Green Valley Layer Farm',
-    product_id: 'prod-03',
-    product_name: 'Wholesale Commercial Carton (210 Eggs)',
-    batch_number: 'EN-BATCH-2026-0721-C',
-    quantity_available: 180,
-    quantity_reserved: 45,
-    quantity_damaged: 2,
-    warehouse_location: 'Dispatched Bay #3',
-    last_counted: '2026-07-21T18:00:00Z',
-  },
-];
+// Clean Empty Default Orders Array (No Demo Data)
+export const mockOrders: Order[] = [];
 
-export const mockOrders: Order[] = [
-  {
-    id: 'ord-901',
-    order_number: 'ORD-2026-9901',
-    customer_id: 'cust-101',
-    customer_name: 'Hotel Taj Residency Bengaluru',
-    customer_phone: '+91 98765 00112',
-    customer_email: 'procurement@tajbengaluru.com',
-    order_type: 'bulk_order',
-    source: 'sales_team',
-    scheduled_delivery_date: '2026-07-23',
-    delivery_address: 'M.G. Road, Bengaluru South, KA 560001',
-    subtotal: 14200,
-    tax: 710,
-    shipping_cost: 350,
-    discount: 500,
-    total: 14760,
-    order_status: 'pending',
-    payment_status: 'paid',
-    created_at: '2026-07-22T15:30:00Z',
-    items: [
-      { id: 'item-1', product_id: 'prod-03', product_name: 'Wholesale Commercial Carton (210 Eggs)', quantity: 10, unit_price: 1420, line_total: 14200 },
-    ],
-  },
-  {
-    id: 'ord-902',
-    order_number: 'ORD-2026-9902',
-    customer_id: 'cust-102',
-    customer_name: 'Ananya Deshmukh',
-    customer_phone: '+91 98765 44321',
-    customer_email: 'ananya@gmail.com',
-    order_type: 'subscription',
-    source: 'website',
-    scheduled_delivery_date: '2026-07-23',
-    delivery_address: 'Indiranagar 100ft Road, Bengaluru 560038',
-    subtotal: 630,
-    tax: 0,
-    shipping_cost: 0,
-    discount: 0,
-    total: 630,
-    order_status: 'confirmed',
-    payment_status: 'paid',
-    created_at: '2026-07-22T14:15:00Z',
-    items: [
-      { id: 'item-2', product_id: 'prod-01', product_name: 'Fresh Farm Eggs (30-Egg Tray)', quantity: 3, unit_price: 210, line_total: 630 },
-    ],
-  },
-  {
-    id: 'ord-903',
-    order_number: 'ORD-2026-9903',
-    customer_id: 'cust-103',
-    customer_name: 'Naturals Supermarket Chain',
-    customer_phone: '+91 98765 88990',
-    customer_email: 'orders@naturals.in',
-    order_type: 'bulk_order',
-    source: 'whatsapp',
-    scheduled_delivery_date: '2026-07-22',
-    delivery_address: 'Koramangala 4th Block, Bengaluru 560034',
-    subtotal: 21000,
-    tax: 1050,
-    shipping_cost: 500,
-    discount: 1000,
-    total: 21550,
-    order_status: 'packed',
-    payment_status: 'paid',
-    created_at: '2026-07-22T11:00:00Z',
-    items: [
-      { id: 'item-3', product_id: 'prod-01', product_name: 'Fresh Farm Eggs (30-Egg Tray)', quantity: 100, unit_price: 210, line_total: 21000 },
-    ],
-  },
-  {
-    id: 'ord-904',
-    order_number: 'ORD-2026-9904',
-    customer_id: 'cust-104',
-    customer_name: 'Vikram Sethi',
-    customer_phone: '+91 98765 77665',
-    customer_email: 'vikram@sethi.org',
-    order_type: 'subscription',
-    source: 'mobile_app',
-    scheduled_delivery_date: '2026-07-22',
-    delivery_address: 'Jayanagar 4th T Block, Bengaluru 560041',
-    subtotal: 420,
-    tax: 0,
-    shipping_cost: 0,
-    discount: 0,
-    total: 420,
-    order_status: 'out_for_delivery',
-    payment_status: 'paid',
-    created_at: '2026-07-22T08:30:00Z',
-    items: [
-      { id: 'item-4', product_id: 'prod-01', product_name: 'Fresh Farm Eggs (30-Egg Tray)', quantity: 2, unit_price: 210, line_total: 420 },
-    ],
-  },
-];
+// Clean Empty Default Inventory Array (No Demo Data)
+export const mockInventory: InventoryItem[] = [];
 
 export async function fetchProducts(): Promise<Product[]> {
   try {
@@ -321,24 +142,118 @@ export async function fetchProducts(): Promise<Product[]> {
 
 export async function fetchInventory(): Promise<InventoryItem[]> {
   try {
-    const { data, error } = await supabase.from('inventory_items').select('*');
-    if (error || !data || data.length === 0) {
-      return mockInventory;
+    let localSaved: InventoryItem[] = [];
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('eden_inventory');
+      if (stored) {
+        try { localSaved = JSON.parse(stored); } catch {}
+      }
     }
-    return data as InventoryItem[];
+
+    const { data, error } = await supabase.from('inventory_items').select('*');
+    if (!error && data && data.length > 0) {
+      const supabaseItems = data as InventoryItem[];
+      const combined = [...supabaseItems];
+      for (const li of localSaved) {
+        if (!combined.some((item) => item.id === li.id)) {
+          combined.unshift(li);
+        }
+      }
+      return combined;
+    }
+    return localSaved;
   } catch {
-    return mockInventory;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('eden_inventory');
+      if (stored) {
+        try { return JSON.parse(stored) as InventoryItem[]; } catch {}
+      }
+    }
+    return [];
   }
 }
 
 export async function fetchOrders(): Promise<Order[]> {
   try {
-    const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-    if (error || !data || data.length === 0) {
-      return mockOrders;
+    let localSaved: Order[] = [];
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('eden_orders');
+      if (stored) {
+        try { localSaved = JSON.parse(stored); } catch {}
+      }
     }
-    return data as Order[];
+
+    const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+    if (!error && data && data.length > 0) {
+      const supabaseOrders = data as Order[];
+      const combined = [...supabaseOrders];
+      for (const lo of localSaved) {
+        if (!combined.some((o) => o.order_number === lo.order_number || o.id === lo.id)) {
+          combined.unshift(lo);
+        }
+      }
+      return combined;
+    }
+
+    return localSaved;
   } catch {
-    return mockOrders;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('eden_orders');
+      if (stored) {
+        try { return JSON.parse(stored) as Order[]; } catch {}
+      }
+    }
+    return [];
+  }
+}
+
+// Live Dual Persistence (LocalStorage + Supabase DB) Function for Sales Orders
+export async function saveOrderToSupabase(order: Order): Promise<boolean> {
+  // 1. Save to LocalStorage immediately so refresh NEVER wipes created orders
+  try {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('eden_orders');
+      let current: Order[] = stored ? JSON.parse(stored) : [];
+      const existsIndex = current.findIndex((o) => o.id === order.id || o.order_number === order.order_number);
+      if (existsIndex >= 0) {
+        current[existsIndex] = order;
+      } else {
+        current.unshift(order);
+      }
+      localStorage.setItem('eden_orders', JSON.stringify(current));
+    }
+  } catch (e) {
+    console.warn("LocalStorage order save warning:", e);
+  }
+
+  // 2. Persist to Live Supabase Database
+  try {
+    const { error } = await supabase.from('orders').upsert({
+      order_number: order.order_number,
+      customer_name: order.customer_name,
+      customer_phone: order.customer_phone,
+      customer_email: order.customer_email,
+      order_type: order.order_type,
+      source: order.source,
+      scheduled_delivery_date: order.scheduled_delivery_date,
+      delivery_address: order.delivery_address,
+      subtotal: order.subtotal,
+      tax: order.tax,
+      shipping_cost: order.shipping_cost,
+      discount: order.discount,
+      total: order.total,
+      order_status: order.order_status,
+      payment_status: order.payment_status,
+      created_at: order.created_at,
+    }, { onConflict: 'order_number' });
+
+    if (error) {
+      console.warn("Supabase Order save warning:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("Supabase Order save exception:", err);
+    return false;
   }
 }
