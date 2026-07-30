@@ -4,13 +4,16 @@ import React, { useState, useEffect } from 'react';
 import {
   fetchSubscriptionPlans,
   fetchSubscriptions,
+  saveSubscriptionToSupabase,
   SubscriptionPlan,
   Subscription,
   mockPlans,
   mockSubscriptions,
 } from '@/lib/api/subscriptions';
+import { useLanguage } from '@/lib/i18n/languageContext';
 
 export default function SubscriptionsPage() {
+  const { t } = useLanguage();
   const [plans, setPlans] = useState<SubscriptionPlan[]>(mockPlans);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(mockSubscriptions);
   const [loading, setLoading] = useState(false);
@@ -54,24 +57,28 @@ export default function SubscriptionsPage() {
   const pausedCount = subscriptions.filter((s) => s.status === 'paused').length;
   const totalSubscribersCount = plans.reduce((sum, p) => sum + (p.active_subscribers_count || 0), 0);
 
-  // Toggle Subscription Status (Pause / Resume)
-  const togglePauseStatus = (subId: string, currentStatus: string) => {
+  // Toggle Subscription Status (Pause / Resume) & Persist to Supabase Database
+  const togglePauseStatus = async (subId: string, currentStatus: string) => {
+    const updatedSubObj = subscriptions.find((s) => s.id === subId);
+    if (!updatedSubObj) return;
+
+    const nextStatus = currentStatus === 'active' ? 'paused' : 'active';
+    const nextObj: Subscription = {
+      ...updatedSubObj,
+      status: nextStatus as Subscription['status'],
+      pause_reason: nextStatus === 'paused' ? 'Customer on temporary hold' : undefined,
+    };
+
+    // Update Local UI State
     setSubscriptions((prev) =>
-      prev.map((s) => {
-        if (s.id === subId) {
-          const nextStatus = currentStatus === 'active' ? 'paused' : 'active';
-          return {
-            ...s,
-            status: nextStatus,
-            pause_reason: nextStatus === 'paused' ? 'Customer on temporary hold' : undefined,
-          };
-        }
-        return s;
-      })
+      prev.map((s) => (s.id === subId ? nextObj : s))
     );
+
+    // Save to Live Supabase Database
+    await saveSubscriptionToSupabase(nextObj);
   };
 
-  const handleCreateSubscription = (e: React.FormEvent) => {
+  const handleCreateSubscription = async (e: React.FormEvent) => {
     e.preventDefault();
     const planObj = plans.find((p) => p.id === selectedPlanId) || plans[1];
 
@@ -94,8 +101,12 @@ export default function SubscriptionsPage() {
       created_at: new Date().toISOString(),
     };
 
+    // Update Local UI State
     setSubscriptions([newSub, ...subscriptions]);
     setShowCreateModal(false);
+
+    // Save to Live Supabase PostgreSQL Database
+    await saveSubscriptionToSupabase(newSub);
   };
 
   return (
@@ -106,9 +117,9 @@ export default function SubscriptionsPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-2">
             🔄 D2C Doorstep Egg Subscriptions & MRR Analytics
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Recurring Egg Subscriptions</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">{t.subscriptionsHeader}</h1>
           <p className="text-xs text-slate-300 mt-1">
-            Manage doorstep plans: <strong>Eden Starter (30 eggs), Eden Essentials (60 eggs), Eden Family (90 eggs), Eden Premium (120+12), Cafe & Restaurant & Hotel</strong>.
+            {t.subscriptionsSubtext}
           </p>
         </div>
 
@@ -119,32 +130,32 @@ export default function SubscriptionsPage() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          New Doorstep Subscription
+          {t.newSubscription}
         </button>
       </div>
 
       {/* Aggregate Telemetry Header */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-emerald-500/30 glass-card">
-          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Monthly Recurring Revenue (MRR)</div>
+          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">{t.mrrTitle}</div>
           <div className="text-3xl font-extrabold text-emerald-400 font-mono mt-1">₹{mrrTotal.toLocaleString()}</div>
           <div className="text-xs text-emerald-400 font-semibold mt-1">From {activeSubsList.length} active recurring plans</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-blue-500/30 glass-card">
-          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Total Active Subscribers</div>
+          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">{t.activeSubscribers}</div>
           <div className="text-3xl font-extrabold text-blue-400 font-mono mt-1">{totalSubscribersCount.toLocaleString()}</div>
           <div className="text-xs text-blue-400 font-semibold mt-1">Doorstep household & B2B accounts</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-amber-500/30 glass-card">
-          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Subscriptions Paused</div>
+          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">{t.pausedSubs}</div>
           <div className="text-3xl font-extrabold text-amber-400 font-mono mt-1">{pausedCount}</div>
           <div className="text-xs text-amber-400 font-semibold mt-1">Vacation or temporary hold</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-[#0a2017] border border-purple-500/30 glass-card">
-          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Plan Alignment</div>
+          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">{t.planAlignment}</div>
           <div className="text-3xl font-extrabold text-purple-400 font-mono mt-1">100%</div>
           <div className="text-xs text-purple-400 font-semibold mt-1">Matched to Eden Starter, Essentials, Family, Premium</div>
         </div>
@@ -168,7 +179,7 @@ export default function SubscriptionsPage() {
               {/* MOST POPULAR BADGE */}
               {plan.is_popular && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#0a3821] text-emerald-300 text-[10px] font-extrabold uppercase tracking-widest shadow-md">
-                  MOST POPULAR
+                  {t.mostPopular}
                 </div>
               )}
 
@@ -209,7 +220,7 @@ export default function SubscriptionsPage() {
                     : 'bg-[#f8eedb] text-slate-900 hover:bg-[#f1e3c8]'
                 }`}
               >
-                {plan.is_popular ? 'Selected' : 'Choose plan'}
+                {plan.is_popular ? t.selectedPlan : t.choosePlan}
               </button>
             </div>
           ))}

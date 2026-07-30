@@ -20,7 +20,7 @@ export interface SubscriptionPlan {
 export interface Subscription {
   id: string;
   subscription_number: string;
-  customer_id: string;
+  customer_id?: string;
   customer_name: string;
   customer_phone?: string;
   customer_email?: string;
@@ -29,7 +29,7 @@ export interface Subscription {
   frequency: 'weekly' | 'biweekly' | 'monthly';
   start_date: string;
   end_date?: string;
-  next_billing_date: string;
+  next_billing_date?: string;
   status: 'active' | 'paused' | 'cancelled' | 'expired';
   pause_reason?: string;
   auto_renew: boolean;
@@ -254,5 +254,36 @@ export async function fetchSubscriptions(): Promise<Subscription[]> {
     return data as Subscription[];
   } catch (err) {
     return mockSubscriptions;
+  }
+}
+
+// Live Supabase Persistence Functions
+export async function saveSubscriptionToSupabase(sub: Subscription): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('subscriptions').upsert({
+      subscription_number: sub.subscription_number,
+      customer_name: sub.customer_name,
+      customer_phone: sub.customer_phone,
+      customer_email: sub.customer_email,
+      plan_name: sub.plan_name,
+      amount: sub.amount,
+      frequency: sub.frequency,
+      start_date: sub.start_date,
+      next_billing_date: sub.next_billing_date,
+      status: sub.status,
+      pause_reason: sub.pause_reason,
+      auto_renew: sub.auto_renew,
+      renewal_count: sub.renewal_count,
+      delivery_address: sub.delivery_address,
+      created_at: sub.created_at,
+    });
+    if (error) {
+      console.warn("Supabase Subscription save warning:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("Supabase Subscription save exception:", err);
+    return false;
   }
 }
