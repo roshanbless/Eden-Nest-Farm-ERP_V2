@@ -35,9 +35,8 @@ export interface FarmUnit {
   };
 }
 
-// Clean Empty Default Array (No Demo Data)
+// Clean Empty Default Arrays (No Demo Data)
 export const mockFarms: Farm[] = [];
-
 export const mockUnits: Record<string, FarmUnit[]> = {};
 
 export async function fetchFarms(): Promise<Farm[]> {
@@ -94,13 +93,35 @@ export async function fetchFarmById(id: string): Promise<Farm | null> {
 
 export async function fetchUnitsByFarmId(farmId: string): Promise<FarmUnit[]> {
   try {
-    const { data, error } = await supabase.from('farm_units').select('*').eq('farm_id', farmId);
-    if (error || !data || data.length === 0) {
-      return mockUnits[farmId] || [];
+    let localSaved: FarmUnit[] = [];
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`eden_sheds_${farmId}`);
+      if (stored) {
+        try { localSaved = JSON.parse(stored); } catch {}
+      }
     }
-    return data as FarmUnit[];
+
+    const { data, error } = await supabase.from('farm_units').select('*').eq('farm_id', farmId);
+    if (!error && data && data.length > 0) {
+      const supabaseUnits = data as FarmUnit[];
+      const combined = [...supabaseUnits];
+      for (const lu of localSaved) {
+        if (!combined.some((u) => u.id === lu.id || u.name === lu.name)) {
+          combined.unshift(lu);
+        }
+      }
+      return combined;
+    }
+
+    return localSaved;
   } catch {
-    return mockUnits[farmId] || [];
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`eden_sheds_${farmId}`);
+      if (stored) {
+        try { return JSON.parse(stored) as FarmUnit[]; } catch {}
+      }
+    }
+    return [];
   }
 }
 
@@ -144,6 +165,48 @@ export async function saveFarmToSupabase(farm: Farm): Promise<boolean> {
     return true;
   } catch (err) {
     console.warn("Supabase Farm save exception:", err);
+    return false;
+  }
+}
+
+// Live Dual Persistence (LocalStorage + Supabase DB) Function for Farm Sheds
+export async function saveShedToSupabase(shed: FarmUnit): Promise<boolean> {
+  // 1. Save to LocalStorage immediately
+  try {
+    if (typeof window !== 'undefined') {
+      const key = `eden_sheds_${shed.farm_id}`;
+      const stored = localStorage.getItem(key);
+      let current: FarmUnit[] = stored ? JSON.parse(stored) : [];
+      const existsIndex = current.findIndex((u) => u.id === shed.id || u.name === shed.name);
+      if (existsIndex >= 0) {
+        current[existsIndex] = shed;
+      } else {
+        current.unshift(shed);
+      }
+      localStorage.setItem(key, JSON.stringify(current));
+    }
+  } catch (e) {
+    console.warn("LocalStorage shed save warning:", e);
+  }
+
+  // 2. Persist to Live Supabase Database
+  try {
+    const { error } = await supabase.from('farm_units').upsert({
+      farm_id: shed.farm_id,
+      name: shed.name,
+      unit_type: shed.unit_type,
+      capacity: shed.capacity,
+      current_occupancy: shed.current_occupancy,
+      constructed_date: shed.constructed_date,
+    });
+
+    if (error) {
+      console.warn("Supabase Shed save warning:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("Supabase Shed save exception:", err);
     return false;
   }
 }
