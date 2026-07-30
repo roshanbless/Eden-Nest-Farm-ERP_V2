@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { useLanguage, Language } from '@/lib/i18n/languageContext';
+import { useTheme } from '@/lib/theme/themeContext';
 
 interface HeaderProps {
   collapsed: boolean;
@@ -12,6 +13,7 @@ interface HeaderProps {
 export default function Header({ collapsed }: HeaderProps) {
   const router = useRouter();
   const { language, setLanguage, t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
 
   const [selectedFarm, setSelectedFarm] = useState('Eden Nest Main Farm (Shed A-D)');
   const [showFarmDropdown, setShowFarmDropdown] = useState(false);
@@ -112,7 +114,16 @@ export default function Header({ collapsed }: HeaderProps) {
 
       {/* Right Controls */}
       <div className="flex items-center gap-3">
-        {/* MULTI-LANGUAGE SELECTOR DROPDOWN (English, Malayalam, Hindi) */}
+        {/* LIGHT & DARK THEME TOGGLE BUTTON */}
+        <button
+          onClick={toggleTheme}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#06140e] border border-emerald-500/40 hover:border-emerald-400 text-xs font-bold text-emerald-300 shadow-sm transition-all"
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          <span>{theme === 'dark' ? '🌙 Dark' : '☀️ Light'}</span>
+        </button>
+
+        {/* MULTI-LANGUAGE SELECTOR DROPDOWN */}
         <div className="relative">
           <button
             onClick={() => setShowLangDropdown(!showLangDropdown)}
