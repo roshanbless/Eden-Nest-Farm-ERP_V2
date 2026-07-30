@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { fetchFarms, Farm, mockFarms } from '@/lib/api/farms';
+import { fetchFarms, saveFarmToSupabase, Farm, mockFarms } from '@/lib/api/farms';
 import { useLanguage } from '@/lib/i18n/languageContext';
 
 export default function FarmsPage() {
@@ -36,7 +36,7 @@ export default function FarmsPage() {
   const totalCapacity = farms.reduce((sum, f) => sum + (f.production_capacity_daily || 0), 0);
   const totalSheds = farms.reduce((sum, f) => sum + (f.sheds_count || 3), 0);
 
-  const handleAddFarm = (e: React.FormEvent) => {
+  const handleAddFarm = async (e: React.FormEvent) => {
     e.preventDefault();
     const created: Farm = {
       id: `farm-${Date.now()}`,
@@ -51,8 +51,13 @@ export default function FarmsPage() {
       sheds_count: parseInt(newShedsCount) || 4,
     };
 
+    // Update Local React UI State
     setFarms([created, ...farms]);
     setShowAddModal(false);
+
+    // Persist to Live Supabase PostgreSQL Database
+    await saveFarmToSupabase(created);
+
     // Reset Form
     setNewFarmName('');
     setNewLocation('');

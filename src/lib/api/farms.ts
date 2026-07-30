@@ -67,17 +67,17 @@ export const mockFarms: Farm[] = [
   },
   {
     id: 'farm-3',
-    name: 'Hosur Processing & Cold Storage Hub',
-    location_name: 'Hosur Industrial Zone, Tamil Nadu',
-    manager_name: 'Anitha Ramesh',
-    total_bird_count: 0,
-    production_capacity_daily: 100000,
-    license_number: 'TN-FOOD-2024-9901',
+    name: 'Wayanad High-Altitude Layer Site',
+    location_name: 'Wayanad, Kerala',
+    manager_name: 'Dr. Priya Nair',
+    total_bird_count: 30000,
+    production_capacity_daily: 28000,
+    license_number: 'KL-POULTRY-2026-9901',
     established_date: '2023-01-20',
-    contact_email: 'hosur@edennest.farm',
+    contact_email: 'wayanad@edennest.farm',
     contact_phone: '+91 98765 99887',
     is_active: true,
-    sheds_count: 2,
+    sheds_count: 3,
   },
 ];
 
@@ -99,88 +99,12 @@ export const mockUnits: Record<string, FarmUnit[]> = {
         humidity_percent: 62,
       },
     },
-    {
-      id: 'unit-102',
-      farm_id: 'farm-1',
-      name: 'Shed B - Bovans White Layer',
-      unit_type: 'shed',
-      capacity: 15000,
-      current_occupancy: 14800,
-      constructed_date: '2021-08-15',
-      equipment: {
-        cooling_system: 'High-Pressure Fogging',
-        feeding_system: 'Auger Pan Feeder',
-        ventilation: 'Cross Ventilation',
-        temperature_celsius: 25.1,
-        humidity_percent: 60,
-      },
-    },
-    {
-      id: 'unit-103',
-      farm_id: 'farm-1',
-      name: 'Shed C - Young Pullet Brooding',
-      unit_type: 'shed',
-      capacity: 20000,
-      current_occupancy: 19500,
-      constructed_date: '2022-02-10',
-      equipment: {
-        cooling_system: 'Climate Automated HVAC',
-        feeding_system: 'Nipple Drinker & Auto Feeder',
-        ventilation: 'Smart Sensors VFD',
-        temperature_celsius: 27.8,
-        humidity_percent: 55,
-      },
-    },
-    {
-      id: 'unit-104',
-      farm_id: 'farm-1',
-      name: 'Cold Storage Unit #1',
-      unit_type: 'cooling',
-      capacity: 50000, // tray capacity
-      current_occupancy: 38400,
-      constructed_date: '2022-06-01',
-      equipment: {
-        cooling_system: 'Industrial Chiller 10-Ton',
-        temperature_celsius: 14.2,
-        humidity_percent: 75,
-      },
-    },
-  ],
-  'farm-2': [
-    {
-      id: 'unit-201',
-      farm_id: 'farm-2',
-      name: 'Shed 1 - Commercial Layers',
-      unit_type: 'shed',
-      capacity: 16000,
-      current_occupancy: 15500,
-      constructed_date: '2022-10-01',
-      equipment: {
-        cooling_system: 'Evaporative Pad',
-        temperature_celsius: 25.8,
-        humidity_percent: 64,
-      },
-    },
-    {
-      id: 'unit-202',
-      farm_id: 'farm-2',
-      name: 'Shed 2 - Commercial Layers',
-      unit_type: 'shed',
-      capacity: 16000,
-      current_occupancy: 16000,
-      constructed_date: '2023-01-15',
-      equipment: {
-        cooling_system: 'Pad & Fan System',
-        temperature_celsius: 26.0,
-        humidity_percent: 63,
-      },
-    },
   ],
 };
 
 export async function fetchFarms(): Promise<Farm[]> {
   try {
-    const { data, error } = await supabase.from('farms').select('*');
+    const { data, error } = await supabase.from('farms').select('*').order('created_at', { ascending: false });
     if (error || !data || data.length === 0) {
       return mockFarms;
     }
@@ -211,5 +135,31 @@ export async function fetchUnitsByFarmId(farmId: string): Promise<FarmUnit[]> {
     return data as FarmUnit[];
   } catch {
     return mockUnits[farmId] || mockUnits['farm-1'];
+  }
+}
+
+// Live Supabase Database Persistence Function for Farms
+export async function saveFarmToSupabase(farm: Farm): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('farms').upsert({
+      name: farm.name,
+      location_name: farm.location_name,
+      manager_name: farm.manager_name,
+      total_bird_count: farm.total_bird_count,
+      production_capacity_daily: farm.production_capacity_daily,
+      license_number: farm.license_number,
+      established_date: farm.established_date,
+      is_active: farm.is_active,
+      sheds_count: farm.sheds_count,
+    }, { onConflict: 'name' });
+
+    if (error) {
+      console.warn("Supabase Farm save warning:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("Supabase Farm save exception:", err);
+    return false;
   }
 }
