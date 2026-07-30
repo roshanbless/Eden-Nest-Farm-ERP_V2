@@ -243,22 +243,81 @@ export async function fetchSubscriptionPlans(): Promise<SubscriptionPlan[]> {
 
 export async function fetchSubscriptions(): Promise<Subscription[]> {
   try {
+    let localSaved: Subscription[] = [];
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('eden_subscriptions');
+      if (stored) {
+        try { localSaved = JSON.parse(stored); } catch {}
+      }
+    }
+
     const { data, error } = await supabase
       .from('subscriptions')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      return mockSubscriptions;
+    if (!error && data && data.length > 0) {
+      const supabaseSubs = data as Subscription[];
+      const combined = [...supabaseSubs];
+      for (const ls of localSaved) {
+        if (!combined.some((s) => s.subscription_number === ls.subscription_number || s.id === ls.id)) {
+          combined.unshift(ls);
+        }
+      }
+      return combined;
     }
-    return data as Subscription[];
+
+    if (localSaved.length > 0) {
+      const combined = [...localSaved];
+      for (const ms of mockSubscriptions) {
+        if (!combined.some((s) => s.subscription_number === ms.subscription_number || s.id === ms.id)) {
+          combined.push(ms);
+        }
+      }
+      return combined;
+    }
+
+    return mockSubscriptions;
   } catch (err) {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('eden_subscriptions');
+      if (stored) {
+        try {
+          const localSaved: Subscription[] = JSON.parse(stored);
+          const combined = [...localSaved];
+          for (const ms of mockSubscriptions) {
+            if (!combined.some((s) => s.subscription_number === ms.subscription_number || s.id === ms.id)) {
+              combined.push(ms);
+            }
+          }
+          return combined;
+        } catch {}
+      }
+    }
     return mockSubscriptions;
   }
 }
 
-// Live Supabase Persistence Functions
+// Live Dual Persistence (LocalStorage + Supabase DB) Function for Subscriptions
 export async function saveSubscriptionToSupabase(sub: Subscription): Promise<boolean> {
+  // 1. Immediately Save to LocalStorage Backup
+  try {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('eden_subscriptions');
+      let current: Subscription[] = stored ? JSON.parse(stored) : [];
+      const existsIndex = current.findIndex((s) => s.id === sub.id || s.subscription_number === sub.subscription_number);
+      if (existsIndex >= 0) {
+        current[existsIndex] = sub;
+      } else {
+        current.unshift(sub);
+      }
+      localStorage.setItem('eden_subscriptions', JSON.stringify(current));
+    }
+  } catch (e) {
+    console.warn("LocalStorage subscription save warning:", e);
+  }
+
+  // 2. Persist to Live Supabase Database
   try {
     const { error } = await supabase.from('subscriptions').upsert({
       subscription_number: sub.subscription_number,
@@ -277,6 +336,7 @@ export async function saveSubscriptionToSupabase(sub: Subscription): Promise<boo
       delivery_address: sub.delivery_address,
       created_at: sub.created_at,
     });
+
     if (error) {
       console.warn("Supabase Subscription save warning:", error.message);
       return false;

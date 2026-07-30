@@ -104,12 +104,55 @@ export const mockUnits: Record<string, FarmUnit[]> = {
 
 export async function fetchFarms(): Promise<Farm[]> {
   try {
-    const { data, error } = await supabase.from('farms').select('*').order('created_at', { ascending: false });
-    if (error || !data || data.length === 0) {
-      return mockFarms;
+    let localSaved: Farm[] = [];
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('eden_farms');
+      if (stored) {
+        try {
+          localSaved = JSON.parse(stored);
+        } catch {}
+      }
     }
-    return data as Farm[];
+
+    const { data, error } = await supabase.from('farms').select('*').order('created_at', { ascending: false });
+    if (!error && data && data.length > 0) {
+      const supabaseFarms = data as Farm[];
+      const combined = [...supabaseFarms];
+      for (const lf of localSaved) {
+        if (!combined.some((f) => f.name === lf.name || f.id === lf.id)) {
+          combined.unshift(lf);
+        }
+      }
+      return combined;
+    }
+
+    if (localSaved.length > 0) {
+      const combined = [...localSaved];
+      for (const mf of mockFarms) {
+        if (!combined.some((f) => f.name === mf.name || f.id === mf.id)) {
+          combined.push(mf);
+        }
+      }
+      return combined;
+    }
+
+    return mockFarms;
   } catch {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('eden_farms');
+      if (stored) {
+        try {
+          const localSaved: Farm[] = JSON.parse(stored);
+          const combined = [...localSaved];
+          for (const mf of mockFarms) {
+            if (!combined.some((f) => f.name === mf.name || f.id === mf.id)) {
+              combined.push(mf);
+            }
+          }
+          return combined;
+        } catch {}
+      }
+    }
     return mockFarms;
   }
 }
@@ -118,11 +161,13 @@ export async function fetchFarmById(id: string): Promise<Farm | null> {
   try {
     const { data, error } = await supabase.from('farms').select('*').eq('id', id).single();
     if (error || !data) {
-      return mockFarms.find((f) => f.id === id) || mockFarms[0];
+      const all = await fetchFarms();
+      return all.find((f) => f.id === id) || all[0];
     }
     return data as Farm;
   } catch {
-    return mockFarms.find((f) => f.id === id) || mockFarms[0];
+    const all = await fetchFarms();
+    return all.find((f) => f.id === id) || all[0];
   }
 }
 
@@ -138,8 +183,26 @@ export async function fetchUnitsByFarmId(farmId: string): Promise<FarmUnit[]> {
   }
 }
 
-// Live Supabase Database Persistence Function for Farms
+// Live Dual Persistence (LocalStorage + Supabase DB) Function for Farms
 export async function saveFarmToSupabase(farm: Farm): Promise<boolean> {
+  // 1. Save to LocalStorage immediately so refresh NEVER wipes registered farms
+  try {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('eden_farms');
+      let current: Farm[] = stored ? JSON.parse(stored) : [];
+      const existsIndex = current.findIndex((f) => f.id === farm.id || f.name === farm.name);
+      if (existsIndex >= 0) {
+        current[existsIndex] = farm;
+      } else {
+        current.unshift(farm);
+      }
+      localStorage.setItem('eden_farms', JSON.stringify(current));
+    }
+  } catch (e) {
+    console.warn("LocalStorage save warning:", e);
+  }
+
+  // 2. Persist to Live Supabase PostgreSQL Database
   try {
     const { error } = await supabase.from('farms').upsert({
       name: farm.name,
