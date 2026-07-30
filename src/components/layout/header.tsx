@@ -44,21 +44,21 @@ export default function Header({ collapsed }: HeaderProps) {
 
   return (
     <header
-      className={`fixed top-0 right-0 z-30 h-16 bg-[#091b12]/90 backdrop-blur-md border-b border-[#133e2b] transition-all duration-300 flex items-center justify-between px-6 ${
+      className={`fixed top-0 right-0 z-30 h-16 bg-[#091b12]/95 backdrop-blur-md border-b border-[#133e2b] transition-all duration-300 flex items-center justify-between px-4 sm:px-6 ${
         collapsed ? 'left-20' : 'left-64'
       }`}
     >
       {/* Left: Global Search & Farm Switcher */}
-      <div className="flex items-center gap-4 flex-1 max-w-xl">
+      <div className="flex items-center gap-3 flex-1 max-w-xl">
         {/* Farm Switcher Dropdown */}
         <div className="relative">
           <button
             onClick={() => setShowFarmDropdown(!showFarmDropdown)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#06140e] border border-[#133e2b] hover:border-emerald-500/40 text-xs font-semibold text-white transition-all"
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="max-w-[160px] sm:max-w-[220px] truncate">{selectedFarm}</span>
-            <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className="max-w-[130px] sm:max-w-[180px] md:max-w-[220px] truncate">{selectedFarm}</span>
+            <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
@@ -95,7 +95,7 @@ export default function Header({ collapsed }: HeaderProps) {
         </div>
 
         {/* Global Search Bar */}
-        <div className="relative hidden lg:block flex-1">
+        <div className="relative hidden xl:block flex-1">
           <input
             type="text"
             placeholder={t.searchPlaceholder}
@@ -113,11 +113,11 @@ export default function Header({ collapsed }: HeaderProps) {
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* LIGHT & DARK THEME TOGGLE BUTTON */}
         <button
           onClick={toggleTheme}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#06140e] border border-emerald-500/40 hover:border-emerald-400 text-xs font-bold text-emerald-300 shadow-sm transition-all"
+          className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#06140e] border border-emerald-500/40 hover:border-emerald-400 text-xs font-bold text-emerald-300 shadow-sm transition-all"
           title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
           <span>{theme === 'dark' ? '🌙 Dark' : '☀️ Light'}</span>
@@ -127,10 +127,10 @@ export default function Header({ collapsed }: HeaderProps) {
         <div className="relative">
           <button
             onClick={() => setShowLangDropdown(!showLangDropdown)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#06140e] border border-amber-500/40 hover:border-amber-400 text-xs font-bold text-amber-300 shadow-sm transition-all"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#06140e] border border-amber-500/40 hover:border-amber-400 text-xs font-bold text-amber-300 shadow-sm transition-all"
           >
             <span>{currentLangObj.flag}</span>
-            <span>{currentLangObj.name}</span>
+            <span className="hidden sm:inline">{currentLangObj.name}</span>
             <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
@@ -168,7 +168,7 @@ export default function Header({ collapsed }: HeaderProps) {
         {/* Quick Action Button */}
         <button
           onClick={() => router.push('/dashboard/production')}
-          className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#133e2b] to-[#10b981] hover:from-[#10b981] hover:to-[#059669] text-white font-semibold text-xs shadow-md shadow-emerald-950 border border-emerald-500/30 transition-all"
+          className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#133e2b] to-[#10b981] hover:from-[#10b981] hover:to-[#059669] text-white font-semibold text-xs shadow-md shadow-emerald-950 border border-emerald-500/30 transition-all whitespace-nowrap"
         >
           <svg className="w-4 h-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

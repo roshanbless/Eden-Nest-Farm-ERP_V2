@@ -25,8 +25,8 @@ export default function DashboardLayout({
         {/* Top Header */}
         <Header collapsed={collapsed} />
 
-        {/* Dynamic Page Content */}
-        <main className="flex-1 pt-20 p-6 md:p-8 max-w-7xl w-full mx-auto space-y-8">
+        {/* Dynamic Page Content with Generous Top Padding (pt-28 md:pt-32) to prevent any header overlap */}
+        <main className="flex-1 pt-28 md:pt-32 p-6 md:p-8 max-w-7xl w-full mx-auto space-y-8">
           {children}
         </main>
       </div>
