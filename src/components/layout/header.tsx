@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { useLanguage, Language } from '@/lib/i18n/languageContext';
 import { useTheme } from '@/lib/theme/themeContext';
+import { fetchFarms, Farm } from '@/lib/api/farms';
 
 interface HeaderProps {
   collapsed: boolean;
@@ -15,17 +16,25 @@ export default function Header({ collapsed }: HeaderProps) {
   const { language, setLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
 
-  const [selectedFarm, setSelectedFarm] = useState('Eden Nest Main Farm (Shed A-D)');
+  const [farmsList, setFarmsList] = useState<Farm[]>([]);
+  const [selectedFarm, setSelectedFarm] = useState('Select Registered Farm');
   const [showFarmDropdown, setShowFarmDropdown] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const farms = [
-    { id: '1', name: 'Eden Nest Main Farm (Shed A-D)', location: 'Bengaluru South', status: 'Primary' },
-    { id: '2', name: 'Green Valley Layer Site', location: 'Mysuru District', status: 'Active' },
-    { id: '3', name: 'South Processing & Cooling Plant', location: 'Hosur Hub', status: 'Processing' },
-  ];
+  useEffect(() => {
+    async function loadFarms() {
+      const data = await fetchFarms();
+      setFarmsList(data);
+      if (data.length > 0) {
+        setSelectedFarm(data[0].name);
+      } else {
+        setSelectedFarm('No Registered Farms');
+      }
+    }
+    loadFarms();
+  }, []);
 
   const languagesList: { code: Language; name: string; flag: string }[] = [
     { code: 'en', name: 'English', flag: '🇬🇧' },
@@ -48,9 +57,9 @@ export default function Header({ collapsed }: HeaderProps) {
         collapsed ? 'left-20' : 'left-64'
       }`}
     >
-      {/* Left: Global Search & Farm Switcher */}
+      {/* Left: Global Search & Dynamic Farm Switcher */}
       <div className="flex items-center gap-3 flex-1 max-w-xl">
-        {/* Farm Switcher Dropdown */}
+        {/* Dynamic Farm Switcher Dropdown */}
         <div className="relative">
           <button
             onClick={() => setShowFarmDropdown(!showFarmDropdown)}
@@ -58,190 +67,134 @@ export default function Header({ collapsed }: HeaderProps) {
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
             <span className="max-w-[130px] sm:max-w-[180px] md:max-w-[220px] truncate">{selectedFarm}</span>
-            <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
 
           {showFarmDropdown && (
-            <div className="absolute top-full left-0 mt-2 w-72 bg-[#091b12] border border-[#133e2b] rounded-2xl shadow-xl p-2 z-50 space-y-1">
-              <div className="px-3 py-1.5 text-[10px] font-bold text-amber-400/90 tracking-wider uppercase">
-                {t.activeFarm}
+            <div className="absolute left-0 mt-2 w-72 bg-[#091b12] border border-[#133e2b] rounded-2xl shadow-2xl py-2 z-50">
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#133e2b]">
+                Registered Farm Facilities ({farmsList.length})
               </div>
-              {farms.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => {
-                    setSelectedFarm(f.name);
-                    setShowFarmDropdown(false);
-                  }}
-                  className={`w-full text-left p-2.5 rounded-xl text-xs transition-all flex items-center justify-between ${
-                    selectedFarm === f.name
-                      ? 'bg-[#133e2b] text-emerald-300 border border-emerald-500/40'
-                      : 'text-slate-300 hover:bg-[#133e2b]/50'
-                  }`}
-                >
-                  <div>
-                    <div className="font-semibold">{f.name}</div>
-                    <div className="text-[10px] text-slate-400">{f.location}</div>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#06140e] text-amber-400 border border-amber-500/20 font-mono">
-                    {f.status}
-                  </span>
-                </button>
-              ))}
+
+              {farmsList.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-400">
+                  No farms registered yet. Click Farms in sidebar to add one.
+                </div>
+              ) : (
+                farmsList.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => {
+                      setSelectedFarm(f.name);
+                      setShowFarmDropdown(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-[#133e2b]/60 transition-colors ${
+                      selectedFarm === f.name ? 'bg-emerald-600/20 text-emerald-300 font-bold' : 'text-slate-200'
+                    }`}
+                  >
+                    <div className="truncate">
+                      <div className="font-bold truncate">{f.name}</div>
+                      <div className="text-[10px] text-slate-400 truncate">{f.location_name || 'Location N/A'}</div>
+                    </div>
+                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shrink-0 ml-2">
+                      {f.total_bird_count?.toLocaleString() || 0} Birds
+                    </span>
+                  </button>
+                ))
+              )}
             </div>
           )}
         </div>
 
         {/* Global Search Bar */}
-        <div className="relative hidden xl:block flex-1">
+        <div className="relative flex-1 hidden sm:block">
+          <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
           <input
             type="text"
             placeholder={t.searchPlaceholder}
-            className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-[#06140e] border border-[#133e2b] text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50"
           />
-          <svg
-            className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
         </div>
       </div>
 
-      {/* Right Controls */}
+      {/* Right Controls: Theme Toggle, Language Selector, User Profile */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* LIGHT & DARK THEME TOGGLE BUTTON */}
+        {/* Theme Switcher Button */}
         <button
           onClick={toggleTheme}
-          className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#06140e] border border-emerald-500/40 hover:border-emerald-400 text-xs font-bold text-emerald-300 shadow-sm transition-all"
-          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          className="px-2.5 py-1.5 rounded-xl bg-[#06140e] border border-[#133e2b] hover:border-emerald-500/40 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all"
+          title="Toggle Light / Dark Mode"
         >
-          <span>{theme === 'dark' ? '🌙 Dark' : '☀️ Light'}</span>
+          <span>{theme === 'dark' ? '☀️ Light' : '🌙 Dark'}</span>
         </button>
 
-        {/* MULTI-LANGUAGE SELECTOR DROPDOWN */}
+        {/* Language Selector Dropdown */}
         <div className="relative">
           <button
             onClick={() => setShowLangDropdown(!showLangDropdown)}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#06140e] border border-amber-500/40 hover:border-amber-400 text-xs font-bold text-amber-300 shadow-sm transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#06140e] border border-[#133e2b] hover:border-emerald-500/40 text-xs font-semibold text-slate-200 transition-all"
           >
             <span>{currentLangObj.flag}</span>
-            <span className="hidden sm:inline">{currentLangObj.name}</span>
-            <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <span className="hidden md:inline">{currentLangObj.name.split(' ')[0]}</span>
+            <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
 
           {showLangDropdown && (
-            <div className="absolute top-full right-0 mt-2 w-56 bg-[#091b12] border border-[#133e2b] rounded-2xl shadow-xl p-2 z-50 space-y-1">
-              <div className="px-3 py-1.5 text-[10px] font-bold text-amber-400 tracking-wider uppercase border-b border-[#133e2b]">
-                🌐 {t.selectLanguage}
+            <div className="absolute right-0 mt-2 w-44 bg-[#091b12] border border-[#133e2b] rounded-2xl shadow-2xl py-2 z-50">
+              <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-[#133e2b] mb-1">
+                Select Language
               </div>
-              {languagesList.map((l) => (
+              {languagesList.map((langObj) => (
                 <button
-                  key={l.code}
+                  key={langObj.code}
                   onClick={() => {
-                    setLanguage(l.code);
+                    setLanguage(langObj.code);
                     setShowLangDropdown(false);
                   }}
-                  className={`w-full text-left p-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
-                    language === l.code
-                      ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
-                      : 'text-slate-300 hover:bg-[#133e2b]/50'
+                  className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-[#133e2b]/60 transition-colors ${
+                    language === langObj.code ? 'bg-emerald-600/20 text-emerald-300 font-bold' : 'text-slate-300'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span>{l.flag}</span>
-                    <span>{l.name}</span>
-                  </div>
-                  {language === l.code && <span className="text-emerald-400 font-bold">✓</span>}
+                  <span className="flex items-center gap-2">
+                    <span>{langObj.flag}</span>
+                    <span>{langObj.name}</span>
+                  </span>
+                  {language === langObj.code && <span className="text-emerald-400 font-bold">✓</span>}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Quick Action Button */}
-        <button
-          onClick={() => router.push('/dashboard/production')}
-          className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#133e2b] to-[#10b981] hover:from-[#10b981] hover:to-[#059669] text-white font-semibold text-xs shadow-md shadow-emerald-950 border border-emerald-500/30 transition-all whitespace-nowrap"
-        >
-          <svg className="w-4 h-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          {t.logProduction}
-        </button>
-
-        {/* Notifications Button */}
-        <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-slate-300 hover:text-white relative"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400" />
-          </button>
-
-          {showNotifications && (
-            <div className="absolute top-full right-0 mt-2 w-80 bg-[#091b12] border border-[#133e2b] rounded-2xl shadow-xl p-3 z-50 space-y-2">
-              <div className="flex items-center justify-between pb-2 border-b border-[#133e2b]">
-                <span className="text-xs font-bold text-white">System Alerts & Logs</span>
-                <span className="text-[10px] text-amber-400 font-bold">3 New</span>
-              </div>
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                <div className="p-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-xs">
-                  <div className="font-semibold text-amber-300">Feed Stock Warning</div>
-                  <div className="text-[10px] text-slate-400">Shed B Layer Feed is below 500 kg safety threshold.</div>
-                </div>
-                <div className="p-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-xs">
-                  <div className="font-semibold text-emerald-300">Batch Inspection Passed</div>
-                  <div className="text-[10px] text-slate-400">Batch #EN-2026-0722 Grade A certified (12,400 eggs).</div>
-                </div>
-                <div className="p-2 rounded-xl bg-[#06140e] border border-[#133e2b] text-xs">
-                  <div className="font-semibold text-blue-300">Subscription Renewed</div>
-                  <div className="text-[10px] text-slate-400">Customer #CUST-8842 auto-billing successful.</div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* User Menu Avatar */}
+        {/* User Profile */}
         <div className="relative">
           <button
             onClick={() => setShowUserDropdown(!showUserDropdown)}
-            className="flex items-center gap-2 p-1.5 rounded-xl bg-[#06140e] border border-[#133e2b] hover:border-emerald-500/40 transition-all"
+            className="flex items-center gap-2 p-1 rounded-xl hover:bg-[#133e2b]/50 transition-colors"
           >
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-600 to-amber-400 font-bold text-slate-950 text-xs flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold flex items-center justify-center text-xs">
               RA
             </div>
-            <span className="text-xs font-semibold text-white hidden sm:inline">Roshan Alexander</span>
-            <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            <span className="text-xs font-semibold text-white hidden md:inline">Roshan Alexander</span>
           </button>
 
           {showUserDropdown && (
-            <div className="absolute top-full right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-2 z-50 space-y-1">
-              <div className="px-3 py-2 border-b border-slate-800">
+            <div className="absolute right-0 mt-2 w-48 bg-[#091b12] border border-[#133e2b] rounded-2xl shadow-2xl py-2 z-50">
+              <div className="px-3 py-2 border-b border-[#133e2b]">
                 <div className="text-xs font-bold text-white">Roshan Alexander</div>
-                <div className="text-[10px] text-slate-400 truncate">roshanalex2007@gmail.com</div>
+                <div className="text-[10px] text-slate-400">Owner & Administrator</div>
               </div>
               <button
                 onClick={handleSignOut}
-                className="w-full text-left px-3 py-2 rounded-xl text-xs text-red-400 hover:bg-red-950/40 transition-colors flex items-center gap-2"
+                className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-950/40 transition-colors font-semibold flex items-center gap-2 mt-1"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                {t.signOut}
+                <span>🚪</span> {t.signOut}
               </button>
             </div>
           )}

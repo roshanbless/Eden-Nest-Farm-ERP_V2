@@ -19,11 +19,11 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       group: 'OPERATIONS',
       items: [
         { name: t.dashboard, href: '/dashboard', icon: '📊' },
-        { name: t.farms, href: '/dashboard/farms', icon: '🏡', badge: '3 Sheds' },
+        { name: t.farms, href: '/dashboard/farms', icon: '🏡' },
         { name: t.production, href: '/dashboard/production', icon: '🥚', badge: 'Active' },
-        { name: t.flockHealth, href: '/dashboard/flock-health', icon: '💉', badge: 'Schedule' },
+        { name: t.flockHealth, href: '/dashboard/flock-health', icon: '💉' },
         { name: 'Quality Control', href: '/dashboard/quality', icon: '🧪' },
-        { name: t.manure, href: '/dashboard/manure', icon: '🌱', badge: 'Revenue' },
+        { name: t.manure, href: '/dashboard/manure', icon: '🌱' },
       ],
     },
     {
@@ -31,8 +31,8 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       items: [
         { name: t.inventory, href: '/dashboard/inventory', icon: '📦' },
         { name: 'Product Catalog', href: '/dashboard/products', icon: '🏷️' },
-        { name: t.salesOrders, href: '/dashboard/orders', icon: '🛒', badge: '14 New' },
-        { name: t.subscriptions, href: '/dashboard/subscriptions', icon: '🔄', badge: '342 Active' },
+        { name: t.salesOrders, href: '/dashboard/orders', icon: '🛒' },
+        { name: t.subscriptions, href: '/dashboard/subscriptions', icon: '🔄' },
         { name: t.deliveries, href: '/dashboard/deliveries', icon: '🚚' },
       ],
     },
@@ -48,7 +48,7 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
     {
       group: 'ADMINISTRATION',
       items: [
-        { name: 'Data ERD Visualizer', href: '/dashboard/data-visualizer', icon: '🗄️', badge: 'Interactive' },
+        { name: 'Data ERD Visualizer', href: '/dashboard/data-visualizer', icon: '🗄️' },
         { name: 'User Management', href: '/dashboard/users', icon: '🛡️' },
         { name: t.rolesPermissions, href: '/dashboard/roles', icon: '🔑' },
         { name: 'System Health', href: '/dashboard/system', icon: '🖥️' },
@@ -99,29 +99,35 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
         {navigationGroups.map((group, gIdx) => (
           <div key={gIdx} className="space-y-1">
             {!collapsed && (
-              <div className="px-3 text-[10px] font-bold text-amber-400/90 tracking-wider mb-2 uppercase">
+              <div className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                 {group.group}
               </div>
             )}
-            {group.items.map((item) => {
-              const isActive = pathname === item.href;
+            {group.items.map((item, iIdx) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
               return (
                 <Link
-                  key={item.href}
+                  key={iIdx}
                   href={item.href}
-                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all font-medium text-xs ${
                     isActive
-                      ? 'bg-gradient-to-r from-emerald-600/30 to-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-sm'
+                      ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-bold shadow-md shadow-emerald-950/60'
                       : 'text-slate-300 hover:text-white hover:bg-[#133e2b]/50'
                   }`}
                   title={collapsed ? item.name : undefined}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-base">{item.icon}</span>
+                  <div className="flex items-center gap-3 truncate">
+                    <span className="text-sm shrink-0">{item.icon}</span>
                     {!collapsed && <span className="truncate">{item.name}</span>}
                   </div>
                   {!collapsed && item.badge && (
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#06140e] text-amber-400 border border-amber-500/20 font-mono">
+                    <span
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                      }`}
+                    >
                       {item.badge}
                     </span>
                   )}
@@ -131,6 +137,19 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
           </div>
         ))}
       </div>
+
+      {/* Footer Info */}
+      {!collapsed && (
+        <div className="p-4 border-t border-[#133e2b]/80 bg-[#06140e]/60">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+            <span>Supabase DB:</span>
+            <span className="text-emerald-400 font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Connected
+            </span>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

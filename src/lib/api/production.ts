@@ -46,19 +46,32 @@ export interface QualityCheck {
 export const mockProductionLogs: ProductionLog[] = [];
 export const mockQualityChecks: QualityCheck[] = [];
 
+// Helper function to sanitize legacy demo logs
+function sanitizeLogs(logs: ProductionLog[]): ProductionLog[] {
+  return logs.filter(
+    (l) =>
+      l.farm_name !== 'Eden Nest Layer Farm' &&
+      l.farm_name !== 'Eden Nest Central Farm' &&
+      !l.id.startsWith('prod-10')
+  );
+}
+
 export async function fetchProductionLogs(): Promise<ProductionLog[]> {
   try {
     let localSaved: ProductionLog[] = [];
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('eden_production');
       if (stored) {
-        try { localSaved = JSON.parse(stored); } catch {}
+        try {
+          localSaved = sanitizeLogs(JSON.parse(stored));
+          localStorage.setItem('eden_production', JSON.stringify(localSaved));
+        } catch {}
       }
     }
 
     const { data, error } = await supabase.from('daily_production').select('*').order('date', { ascending: false });
     if (!error && data && data.length > 0) {
-      const supabaseLogs = data as ProductionLog[];
+      const supabaseLogs = sanitizeLogs(data as ProductionLog[]);
       const combined = [...supabaseLogs];
       for (const lp of localSaved) {
         if (!combined.some((l) => l.id === lp.id)) {
@@ -72,7 +85,7 @@ export async function fetchProductionLogs(): Promise<ProductionLog[]> {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('eden_production');
       if (stored) {
-        try { return JSON.parse(stored) as ProductionLog[]; } catch {}
+        try { return sanitizeLogs(JSON.parse(stored) as ProductionLog[]); } catch {}
       }
     }
     return [];
@@ -100,7 +113,7 @@ export async function saveProductionLogToSupabase(log: ProductionLog): Promise<b
   try {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('eden_production');
-      let current: ProductionLog[] = stored ? JSON.parse(stored) : [];
+      let current: ProductionLog[] = stored ? sanitizeLogs(JSON.parse(stored)) : [];
       const existsIndex = current.findIndex((l) => l.id === log.id);
       if (existsIndex >= 0) {
         current[existsIndex] = log;
